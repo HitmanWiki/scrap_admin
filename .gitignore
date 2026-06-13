@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables (CRITICAL - never commit)
+.env
+.env.local
+
+# Streamlit secrets (CRITICAL - never commit)
+.streamlit/secrets.toml
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Database (if any local)
+*.db
+*.sqlite
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Backup files
+*.bak
+*.backup
