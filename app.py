@@ -7,13 +7,9 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 import psycopg2.extras
-import os
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # ============================================
 # PAGE CONFIG
@@ -26,12 +22,12 @@ st.set_page_config(
 )
 
 # ============================================
-# DATABASE CONNECTION
+# DATABASE CONNECTION (Using st.secrets)
 # ============================================
 def get_db_connection():
     try:
         conn = psycopg2.connect(
-            os.getenv('DATABASE_URL'),
+            st.secrets["DATABASE_URL"],
             sslmode='require',
             connect_timeout=10
         )
@@ -73,7 +69,7 @@ def execute(sql, params=None):
         conn.close()
 
 # ============================================
-# AUTHENTICATION
+# AUTHENTICATION (Using st.secrets)
 # ============================================
 def check_password():
     if "authenticated" not in st.session_state:
@@ -95,7 +91,7 @@ def check_password():
             password = st.text_input("Password", type="password", placeholder="Enter admin password")
             
             if st.button("Login", use_container_width=True):
-                admin_pass = os.getenv('ADMIN_PASSWORD', 'GhostWire@2026')
+                admin_pass = st.secrets.get("ADMIN_PASSWORD", "GhostWire@2026")
                 if password == admin_pass:
                     st.session_state.authenticated = True
                     st.rerun()
@@ -166,13 +162,13 @@ def dashboard_page():
         s = stats[0]
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            st.metric("Active Users", s.get('total_users', 0))
+            st.metric("👥 Active Users", s.get('total_users', 0))
         with c2:
-            st.metric("Total Wallets", s.get('total_wallets', 0))
+            st.metric("💼 Total Wallets", s.get('total_wallets', 0))
         with c3:
-            st.metric("Active Positions", s.get('active_positions', 0))
+            st.metric("📊 Active Positions", s.get('active_positions', 0))
         with c4:
-            st.metric("Active Channels", s.get('active_channels', 0))
+            st.metric("📡 Active Channels", s.get('active_channels', 0))
     
     # Stats row 2
     stats2 = query("""
@@ -187,13 +183,13 @@ def dashboard_page():
         s = stats2[0]
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            st.metric("Total Trades", s.get('total_trades', 0))
+            st.metric("💱 Total Trades", s.get('total_trades', 0))
         with c2:
-            st.metric("Today's Trades", s.get('today_trades', 0))
+            st.metric("📈 Today's Trades", s.get('today_trades', 0))
         with c3:
-            st.metric("Total Referrals", s.get('total_referrals', 0))
+            st.metric("🔗 Total Referrals", s.get('total_referrals', 0))
         with c4:
-            st.metric("Total Commission", f"{s.get('total_commission', 0):.4f} SOL")
+            st.metric("💰 Total Commission", f"{s.get('total_commission', 0):.4f} SOL")
     
     st.markdown("---")
     
@@ -204,7 +200,6 @@ def dashboard_page():
         st.subheader("Trades (Last 7 Days)")
         trades = query("""
             SELECT DATE(created_at) as date, 
-                   COUNT(*) as total,
                    COUNT(CASE WHEN trade_type = 'buy' THEN 1 END) as buys,
                    COUNT(CASE WHEN trade_type IN ('sell', 'auto-sell') THEN 1 END) as sells
             FROM trade_history 
@@ -275,7 +270,7 @@ def dashboard_page():
 def users_page():
     st.title("User Management")
     
-    search = st.text_input("Search by username or ID", placeholder="Enter username or user ID")
+    search = st.text_input("🔍 Search by username or ID", placeholder="Enter username or user ID")
     
     users = query("""
         SELECT u.user_id, u.username, u.is_active, u.created_at,
@@ -303,19 +298,19 @@ def users_page():
     with c2:
         action = st.selectbox("Action", ["Whitelist", "Blacklist", "Activate", "Deactivate"])
     with c3:
-        if st.button("Execute"):
+        if st.button("Execute", use_container_width=True):
             if action == "Whitelist":
                 execute("INSERT INTO fee_whitelist (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
-                st.success(f"User {user_id} whitelisted")
+                st.success(f"User {user_id} whitelisted", icon="✅")
             elif action == "Blacklist":
                 execute("UPDATE users SET is_active = false WHERE user_id = %s", (user_id,))
-                st.success(f"User {user_id} blacklisted")
+                st.success(f"User {user_id} blacklisted", icon="🚫")
             elif action == "Activate":
                 execute("UPDATE users SET is_active = true WHERE user_id = %s", (user_id,))
-                st.success(f"User {user_id} activated")
+                st.success(f"User {user_id} activated", icon="✅")
             elif action == "Deactivate":
                 execute("UPDATE users SET is_active = false WHERE user_id = %s", (user_id,))
-                st.success(f"User {user_id} deactivated")
+                st.success(f"User {user_id} deactivated", icon="⚠️")
             st.rerun()
 
 # ============================================
@@ -423,7 +418,7 @@ def trades_page():
         st.dataframe(df, use_container_width=True)
         
         csv = df.to_csv(index=False)
-        st.download_button("Download CSV", csv, "trades.csv", "text/csv")
+        st.download_button("📥 Download CSV", csv, "trades.csv", "text/csv")
 
 # ============================================
 # REFERRALS PAGE
@@ -461,11 +456,11 @@ def fees_page():
         with c1:
             st.metric("Current Fee", f"{c.get('fee_percent', 0)}%")
             wallet = c.get('fee_wallet', 'Not Set')
-            st.metric("Fee Wallet", wallet[:30] + "..." if wallet and wallet != 'Not Set' else "Not Set")
+            st.metric("Fee Wallet", wallet[:20] + "..." if wallet and wallet != 'Not Set' else "Not Set")
         
         with c2:
             new_fee = st.number_input("Update Fee %", min_value=0.0, max_value=100.0, value=float(c.get('fee_percent', 0.05)), step=0.05)
-            if st.button("Save"):
+            if st.button("Save", use_container_width=True):
                 execute("INSERT INTO fee_config (fee_percent, is_active) VALUES (%s, true)", (new_fee,))
                 st.success(f"Fee updated to {new_fee}%")
                 st.rerun()
@@ -492,13 +487,13 @@ def whitelist_page():
     c1, c2 = st.columns(2)
     with c1:
         add_id = st.number_input("Add User ID", min_value=1, step=1)
-        if st.button("Add to Whitelist"):
+        if st.button("✅ Add to Whitelist", use_container_width=True):
             execute("INSERT INTO fee_whitelist (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (add_id,))
             st.success(f"User {add_id} whitelisted")
             st.rerun()
     with c2:
         remove_id = st.number_input("Remove User ID", min_value=1, step=1)
-        if st.button("Remove from Whitelist"):
+        if st.button("❌ Remove from Whitelist", use_container_width=True):
             execute("UPDATE fee_whitelist SET is_active = false WHERE user_id = %s", (remove_id,))
             st.success(f"User {remove_id} removed")
             st.rerun()
@@ -522,7 +517,7 @@ def blacklist_page():
         
         st.markdown("---")
         reactivate_id = st.number_input("Reactivate User ID", min_value=1, step=1)
-        if st.button("Reactivate"):
+        if st.button("✅ Reactivate", use_container_width=True):
             execute("UPDATE users SET is_active = true WHERE user_id = %s", (reactivate_id,))
             st.success(f"User {reactivate_id} reactivated")
             st.rerun()
@@ -588,11 +583,11 @@ def settings_page():
     
     with c2:
         st.subheader("Cleanup")
-        if st.button("Clean Old Snipe Logs (>30 days)"):
+        if st.button("🗑️ Clean Old Snipe Logs (>30 days)", use_container_width=True):
             execute("DELETE FROM snipe_logs WHERE created_at < CURRENT_DATE - INTERVAL '30 days'")
             st.success("Old logs cleaned!")
         
-        if st.button("Reset Daily Trades"):
+        if st.button("🔄 Reset Daily Trades", use_container_width=True):
             execute("UPDATE users SET daily_trades = 0")
             st.success("Daily trades reset!")
 
