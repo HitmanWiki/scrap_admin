@@ -34,20 +34,30 @@ def get_config(key, default=None):
         return os.getenv(key, default)
 
 # ============================================
+# HELPER: Safe dataframe styling (compatible with all pandas versions)
+# ============================================
+def style_dataframe(df, style_func, subset):
+    """Apply styling to dataframe - compatible with all pandas versions"""
+    try:
+        return df.style.map(style_func, subset=subset)
+    except AttributeError:
+        try:
+            return df.style.applymap(style_func, subset=subset)
+        except:
+            return df.style
+
+# ============================================
 # CUSTOM CSS FOR DARK MODERN THEME
 # ============================================
 def load_css():
     st.markdown("""
     <style>
-        /* Import Google Fonts */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
-        /* Global Styles */
         .stApp {
             background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%);
         }
         
-        /* Main content area */
         .main .block-container {
             padding: 2rem 3rem;
             background: rgba(10, 10, 26, 0.7);
@@ -56,7 +66,6 @@ def load_css():
             border: 1px solid rgba(103, 25, 255, 0.1);
         }
         
-        /* Typography */
         h1, h2, h3, h4, h5, h6 {
             font-family: 'Inter', sans-serif !important;
             font-weight: 600 !important;
@@ -71,7 +80,6 @@ def load_css():
             margin-bottom: 0.5rem !important;
         }
         
-        /* Metric Cards */
         div[data-testid="stMetric"] {
             background: rgba(20, 20, 40, 0.6) !important;
             backdrop-filter: blur(10px) !important;
@@ -99,16 +107,11 @@ def load_css():
             font-size: 2rem !important;
         }
         
-        /* DataFrames */
         .stDataFrame {
             background: rgba(20, 20, 40, 0.6) !important;
             border-radius: 16px !important;
             border: 1px solid rgba(103, 25, 255, 0.2) !important;
             overflow: hidden !important;
-        }
-        
-        .stDataFrame table {
-            background: transparent !important;
         }
         
         .stDataFrame th {
@@ -125,7 +128,6 @@ def load_css():
             border-bottom: 1px solid rgba(103, 25, 255, 0.1) !important;
         }
         
-        /* Buttons */
         .stButton > button {
             background: linear-gradient(135deg, #6719ff, #8a4dff) !important;
             color: white !important;
@@ -142,8 +144,8 @@ def load_css():
             box-shadow: 0 8px 25px rgba(103, 25, 255, 0.5) !important;
         }
         
-        /* Text Inputs */
-        .stTextInput > div > div > input {
+        .stTextInput > div > div > input,
+        .stNumberInput > div > div > input {
             background: rgba(20, 20, 40, 0.8) !important;
             border: 1px solid rgba(103, 25, 255, 0.3) !important;
             border-radius: 12px !important;
@@ -155,28 +157,17 @@ def load_css():
             color: #6e6e80 !important;
         }
         
-        /* Select boxes */
         .stSelectbox > div > div {
             background: rgba(20, 20, 40, 0.8) !important;
             border: 1px solid rgba(103, 25, 255, 0.3) !important;
             border-radius: 12px !important;
         }
         
-        /* Number inputs */
-        .stNumberInput > div > div > input {
-            background: rgba(20, 20, 40, 0.8) !important;
-            border: 1px solid rgba(103, 25, 255, 0.3) !important;
-            border-radius: 12px !important;
-            color: #ffffff !important;
-        }
-        
-        /* Sidebar */
-        .css-1d391kg, .css-1lcbmhc, [data-testid="stSidebar"] {
+        [data-testid="stSidebar"] {
             background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 100%) !important;
             border-right: 1px solid rgba(103, 25, 255, 0.2) !important;
         }
         
-        /* Radio buttons */
         .stRadio > div {
             background: transparent !important;
         }
@@ -185,17 +176,14 @@ def load_css():
             color: #a78bfa !important;
         }
         
-        /* Charts */
         .js-plotly-plot {
             background: transparent !important;
         }
         
-        /* Separator */
         hr {
             border-color: rgba(103, 25, 255, 0.2) !important;
         }
         
-        /* Info/Success/Error Messages */
         .stAlert {
             background: rgba(20, 20, 40, 0.8) !important;
             border: 1px solid rgba(103, 25, 255, 0.3) !important;
@@ -203,7 +191,6 @@ def load_css():
             color: #ffffff !important;
         }
         
-        /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -217,7 +204,6 @@ def load_css():
             border-radius: 10px;
         }
         
-        /* Title animations */
         @keyframes gradient {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
@@ -233,7 +219,6 @@ def load_css():
             background-clip: text;
         }
         
-        /* Pulse animation for live indicators */
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -245,7 +230,6 @@ def load_css():
             color: #4ecca3;
         }
         
-        /* Slider styling */
         .stSlider > div > div > div {
             background: linear-gradient(135deg, #6719ff, #8a4dff) !important;
         }
@@ -339,7 +323,6 @@ def check_password():
                 else:
                     st.error("🔒 Invalid password!")
         
-        # Footer
         st.markdown("""
             <div style="text-align: center; margin-top: 40px; color: #6e6e80; font-size: 0.85rem;">
                 <p>Protected by GHOSTwire Security 🔐</p>
@@ -367,7 +350,6 @@ def sidebar():
         
         st.markdown("---")
         
-        # Navigation with icons
         pages = {
             "📊 Dashboard": "Dashboard",
             "👥 Users": "Users",
@@ -384,18 +366,11 @@ def sidebar():
             "⚙️ Settings": "Settings"
         }
         
-        selected = st.radio(
-            "Navigation",
-            list(pages.keys()),
-            index=0,
-            label_visibility="collapsed"
-        )
-        
+        selected = st.radio("Navigation", list(pages.keys()), index=0, label_visibility="collapsed")
         page = pages[selected]
         
         st.markdown("---")
         
-        # Quick stats
         try:
             stats = query("SELECT COUNT(*) as count FROM users WHERE is_active = true")
             if stats:
@@ -411,7 +386,6 @@ def sidebar():
         
         st.markdown("---")
         
-        # Time and logout
         st.markdown(f"""
             <div style="text-align: center; color: #6e6e80; font-size: 0.75rem;">
                 <p>{datetime.now().strftime('%Y-%m-%d %H:%M')} UTC</p>
@@ -437,10 +411,7 @@ def section_header(title, subtitle=None):
     """, unsafe_allow_html=True)
 
 def metric_card(title, value, icon, delta=None):
-    delta_color = "normal"
-    if delta:
-        delta_color = "normal"
-    st.metric(f"{icon} {title}", value, delta=delta, delta_color=delta_color)
+    st.metric(f"{icon} {title}", value, delta=delta)
 
 # ============================================
 # DASHBOARD PAGE
@@ -448,7 +419,6 @@ def metric_card(title, value, icon, delta=None):
 def dashboard_page():
     section_header("📊 Dashboard", "Real-time analytics and performance metrics")
     
-    # Stats row 1
     stats = query("""
         SELECT 
             (SELECT COUNT(*) FROM users WHERE is_active = true) as total_users,
@@ -462,18 +432,13 @@ def dashboard_page():
     if stats:
         s = stats[0]
         c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            metric_card("Active Users", s.get('total_users', 0), "👥")
-        with c2:
-            metric_card("Total Wallets", s.get('total_wallets', 0), "💼")
-        with c3:
-            metric_card("Active Positions", s.get('active_positions', 0), "📈")
-        with c4:
-            metric_card("Active Channels", s.get('active_channels', 0), "📡")
+        with c1: metric_card("Active Users", s.get('total_users', 0), "👥")
+        with c2: metric_card("Total Wallets", s.get('total_wallets', 0), "💼")
+        with c3: metric_card("Active Positions", s.get('active_positions', 0), "📈")
+        with c4: metric_card("Active Channels", s.get('active_channels', 0), "📡")
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Stats row 2
     stats2 = query("""
         SELECT 
             (SELECT COUNT(*) FROM trade_history) as total_trades,
@@ -486,18 +451,13 @@ def dashboard_page():
     if stats2:
         s = stats2[0]
         c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            metric_card("Total Trades", s.get('total_trades', 0), "💱")
-        with c2:
-            metric_card("Total Buys", s.get('total_buys', 0), "🟢")
-        with c3:
-            metric_card("Total Sells", s.get('total_sells', 0), "🔴")
-        with c4:
-            metric_card("Referral Earnings", f"{s.get('total_commission', 0):.4f} SOL", "💰")
+        with c1: metric_card("Total Trades", s.get('total_trades', 0), "💱")
+        with c2: metric_card("Total Buys", s.get('total_buys', 0), "🟢")
+        with c3: metric_card("Total Sells", s.get('total_sells', 0), "🔴")
+        with c4: metric_card("Referral Earnings", f"{s.get('total_commission', 0):.4f} SOL", "💰")
     
     st.markdown("---")
     
-    # Charts with improved styling
     c1, c2 = st.columns(2)
     
     with c1:
@@ -514,23 +474,14 @@ def dashboard_page():
         if trades:
             df = pd.DataFrame(trades)
             fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=df['date'], y=df['buys'], name='Buys', 
-                marker_color='#4ecca3',
-                marker=dict(line=dict(color='#2dd4a8', width=1), opacity=0.9)
-            ))
-            fig.add_trace(go.Bar(
-                x=df['date'], y=df['sells'], name='Sells', 
-                marker_color='#e94560',
-                marker=dict(line=dict(color='#ff6b81', width=1), opacity=0.9)
-            ))
+            fig.add_trace(go.Bar(x=df['date'], y=df['buys'], name='Buys', marker_color='#4ecca3', opacity=0.9))
+            fig.add_trace(go.Bar(x=df['date'], y=df['sells'], name='Sells', marker_color='#e94560', opacity=0.9))
             fig.update_layout(
                 height=400, margin=dict(l=20, r=20, t=40, b=20),
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa'), title=None),
-                yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa'), title=None),
-                legend=dict(font=dict(color='#a78bfa'), bgcolor='rgba(0,0,0,0)'),
-                hovermode='x unified', barmode='group'
+                xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa')),
+                yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa')),
+                legend=dict(font=dict(color='#a78bfa')), hovermode='x unified', barmode='group'
             )
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         else:
@@ -548,24 +499,21 @@ def dashboard_page():
         if users:
             df = pd.DataFrame(users)
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df['date'], y=df['count'], mode='lines+markers',
+            fig.add_trace(go.Scatter(x=df['date'], y=df['count'], mode='lines+markers',
                 line=dict(color='#6719ff', width=3, shape='spline'),
-                marker=dict(color='#8a4dff', size=8, line=dict(color='#a78bfa', width=2)),
-                fill='tozeroy', fillcolor='rgba(103, 25, 255, 0.1)'
-            ))
+                marker=dict(color='#8a4dff', size=8),
+                fill='tozeroy', fillcolor='rgba(103, 25, 255, 0.1)'))
             fig.update_layout(
                 height=400, margin=dict(l=20, r=20, t=40, b=20),
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa'), title=None),
-                yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa'), title=None),
+                xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa')),
+                yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa')),
                 hovermode='x unified'
             )
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("No new users in last 30 days")
     
-    # Top tokens trading volume
     st.markdown("---")
     st.markdown("### 🏆 Top Traded Tokens (Today)")
     
@@ -578,24 +526,22 @@ def dashboard_page():
         LEFT JOIN positions p ON th.token_address = p.token_address
         WHERE DATE(th.created_at) = CURRENT_DATE
         GROUP BY p.token_symbol, th.token_address
-        ORDER BY trades DESC
-        LIMIT 10
+        ORDER BY trades DESC LIMIT 10
     """)
     
     if top_tokens:
         df = pd.DataFrame(top_tokens)
         fig = px.bar(df, x='token', y='trades', color='trades',
-                     color_continuous_scale=['#4ecca3', '#6719ff', '#e94560'], title=None)
+                     color_continuous_scale=['#4ecca3', '#6719ff', '#e94560'])
         fig.update_layout(
             height=400, margin=dict(l=20, r=20, t=20, b=20),
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa'), title=None),
-            yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa'), title=None),
+            xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa')),
+            yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa')),
             coloraxis_showscale=False
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     
-    # Recent trades table with styling
     st.markdown("---")
     st.markdown("### 🔄 Recent Activity Feed")
     
@@ -609,8 +555,7 @@ def dashboard_page():
             ROUND(th.price::numeric, 6) as "Price (SOL)"
         FROM trade_history th
         JOIN users u ON th.user_id = u.user_id
-        ORDER BY th.created_at DESC 
-        LIMIT 20
+        ORDER BY th.created_at DESC LIMIT 20
     """)
     
     if recent:
@@ -625,7 +570,7 @@ def dashboard_page():
                 return 'background-color: rgba(233, 69, 96, 0.2); color: #e94560; font-weight: 600;'
             return ''
         
-        styled_df = df.style.applymap(style_trade_type, subset=['Type'])
+        styled_df = style_dataframe(df, style_trade_type, ['Type'])
         st.dataframe(styled_df, use_container_width=True, height=400)
     else:
         st.info("No recent trades available")
@@ -637,10 +582,8 @@ def users_page():
     section_header("👥 User Management", "Monitor and manage user accounts")
     
     col1, col2 = st.columns([2, 1])
-    
     with col1:
         search = st.text_input("🔍 Search Users", placeholder="Search by username or ID...")
-    
     with col2:
         status_filter = st.selectbox("Status", ["All Users", "Active Only", "Inactive Only"])
     
@@ -660,19 +603,11 @@ def users_page():
             COALESCE(t.trade_count, 0) as "Trades",
             COALESCE(r.ref_earned, 0) as "Ref Earnings"
         FROM users u
-        LEFT JOIN (
-            SELECT user_id, COUNT(*) as wallet_count FROM wallets WHERE is_active = true GROUP BY user_id
-        ) w ON u.user_id = w.user_id
-        LEFT JOIN (
-            SELECT user_id, COUNT(*) as trade_count FROM trade_history GROUP BY user_id
-        ) t ON u.user_id = t.user_id
-        LEFT JOIN (
-            SELECT referrer_id, COALESCE(SUM(commission::numeric), 0) as ref_earned
-            FROM referral_earnings GROUP BY referrer_id
-        ) r ON u.user_id = r.referrer_id
+        LEFT JOIN (SELECT user_id, COUNT(*) as wallet_count FROM wallets WHERE is_active = true GROUP BY user_id) w ON u.user_id = w.user_id
+        LEFT JOIN (SELECT user_id, COUNT(*) as trade_count FROM trade_history GROUP BY user_id) t ON u.user_id = t.user_id
+        LEFT JOIN (SELECT referrer_id, COALESCE(SUM(commission::numeric), 0) as ref_earned FROM referral_earnings GROUP BY referrer_id) r ON u.user_id = r.referrer_id
         {where_clause}
-        ORDER BY u.created_at DESC
-        LIMIT 200
+        ORDER BY u.created_at DESC LIMIT 200
     """)
     
     if users:
@@ -686,7 +621,7 @@ def users_page():
                 return 'background-color: rgba(78, 204, 163, 0.2); color: #4ecca3; font-weight: 600;'
             return 'background-color: rgba(233, 69, 96, 0.2); color: #e94560; font-weight: 600;'
         
-        styled_df = df.style.applymap(highlight_active, subset=['Active'])
+        styled_df = style_dataframe(df, highlight_active, ['Active'])
         st.dataframe(styled_df, use_container_width=True)
     
     st.markdown("---")
@@ -734,8 +669,7 @@ def wallets_page():
 def channels_page():
     section_header("📡 Channel Monitoring", "Track Telegram channels")
     stats = query("""
-        SELECT COUNT(*) as total,
-               COUNT(CASE WHEN is_private THEN 1 END) as private,
+        SELECT COUNT(*) as total, COUNT(CASE WHEN is_private THEN 1 END) as private,
                COUNT(CASE WHEN NOT is_private THEN 1 END) as public
         FROM channels WHERE is_active = true
     """)
@@ -812,7 +746,7 @@ def trades_page():
             if val == 'buy': return 'background-color: rgba(78, 204, 163, 0.2); color: #4ecca3; font-weight: 600;'
             elif val in ['sell', 'auto-sell']: return 'background-color: rgba(233, 69, 96, 0.2); color: #e94560; font-weight: 600;'
             return ''
-        styled_df = df.style.applymap(style_trade_type, subset=['Type'])
+        styled_df = style_dataframe(df, style_trade_type, ['Type'])
         st.dataframe(styled_df, use_container_width=True)
         csv = df.to_csv(index=False)
         st.download_button("📥 Download CSV", csv, f"trades_{datetime.now():%Y%m%d_%H%M}.csv", "text/csv", use_container_width=True)
@@ -863,7 +797,8 @@ def fees_page():
             st.markdown("### Current Configuration")
             st.metric("Fee Percentage", f"{c.get('fee_percent', 0)}%")
             wallet = c.get('fee_wallet', 'Not Set')
-            st.metric("Fee Wallet", f"{wallet[:12]}...{wallet[-8:]}" if wallet and wallet != 'Not Set' else "Not Set")
+            wallet_display = f"{wallet[:12]}...{wallet[-8:]}" if wallet and wallet != 'Not Set' else "Not Set"
+            st.metric("Fee Wallet", wallet_display)
         with c2:
             st.markdown("### Update Fee")
             new_fee = st.slider("Fee Percentage", 0.0, 10.0, float(c.get('fee_percent', 0.05)), 0.05, format="%.3f%%")
@@ -925,7 +860,7 @@ def blacklist_page():
         df = pd.DataFrame(blacklist)
         def highlight_inactive(val):
             return 'background-color: rgba(233, 69, 96, 0.2);'
-        styled_df = df.style.applymap(highlight_inactive, subset=['Deactivated Since'])
+        styled_df = style_dataframe(df, highlight_inactive, ['Deactivated Since'])
         st.dataframe(styled_df, use_container_width=True)
         st.markdown("---")
         st.markdown("### Reactivate User")
@@ -956,7 +891,7 @@ def snipelogs_page():
             if val == 'success': return 'background-color: rgba(78, 204, 163, 0.2); color: #4ecca3; font-weight: 600;'
             elif val == 'failed': return 'background-color: rgba(233, 69, 96, 0.2); color: #e94560; font-weight: 600;'
             return ''
-        styled_df = df.style.applymap(style_status, subset=['Status'])
+        styled_df = style_dataframe(df, style_status, ['Status'])
         st.dataframe(styled_df, use_container_width=True)
     else:
         st.info("No snipe logs available")
