@@ -1,6 +1,6 @@
 """
 Solana Sniper Bot - Professional Admin Dashboard
-Streamlit + Neon PostgreSQL
+Streamlit + Neon PostgreSQL - Premium UI Edition
 """
 
 import streamlit as st
@@ -10,9 +10,12 @@ import psycopg2.extras
 from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
-import plotly.io as pio
 import time
-import random
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # ============================================
 # PAGE CONFIG
@@ -23,7 +26,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
 # ============================================
 # CUSTOM CSS FOR DARK MODERN THEME
 # ============================================
@@ -249,11 +251,12 @@ def load_css():
 @st.cache_resource
 def get_db_connection():
     try:
-        # Try to get from secrets, fallback to direct URL
-        try:
-            db_url = st.secrets["DATABASE_URL"]
-        except:
-            db_url = "postgresql://neondb_owner:npg_wUKkG3XANCV4@ep-lucky-recipe-aq7blk49-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        # Get database URL from environment variable
+        db_url = os.getenv("DATABASE_URL")
+        
+        if not db_url:
+            st.error("DATABASE_URL not found in environment variables")
+            return None
         
         conn = psycopg2.connect(
             db_url,
