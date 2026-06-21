@@ -36,11 +36,8 @@ def get_config(key, default=None):
 # ============================================
 def get_logo_base64():
     """Load logo.png and convert to base64 for HTML embedding"""
-    logo_path = Path(__file__).parent / "logo.png"
-    
-    # Check multiple locations for logo
     possible_paths = [
-        logo_path,
+        Path(__file__).parent / "logo.png",
         Path("logo.png"),
         Path("assets/logo.png"),
         Path("static/logo.png")
@@ -60,7 +57,6 @@ def render_logo_html(width="80px", height="80px", css_class=""):
     if logo_b64:
         return f'<img src="data:image/png;base64,{logo_b64}" width="{width}" height="{height}" class="{css_class}" style="object-fit: contain;">'
     else:
-        # Fallback to ghost emoji if logo not found
         return '👻'
 
 # ============================================
@@ -151,9 +147,13 @@ def load_css():
             background: #0a0a0a;
         }
         
-        /* ========== AUTH SCREEN ========== */
-        .auth-screen {
-            min-height: 100vh;
+        /* ========== AUTH SCREEN - FIXED CENTERING ========== */
+        .auth-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -161,17 +161,19 @@ def load_css():
                 radial-gradient(ellipse at 20% 50%, rgba(0, 255, 136, 0.03) 0%, transparent 50%),
                 radial-gradient(ellipse at 80% 20%, rgba(0, 255, 136, 0.02) 0%, transparent 50%),
                 #0a0a0a;
-            padding: 40px 20px;
+            z-index: 1000;
+            overflow: auto;
         }
         
         .auth-box {
             background: #0d0d0d;
             border: 1px solid #1a1a1a;
             border-radius: 0;
-            padding: 60px 50px;
+            padding: 50px 50px 40px 50px;
             max-width: 440px;
-            width: 100%;
+            width: 90%;
             position: relative;
+            margin: 20px;
         }
         
         .auth-box::before {
@@ -186,36 +188,37 @@ def load_css():
         
         .auth-logo-section {
             text-align: center;
-            margin-bottom: 50px;
+            margin-bottom: 40px;
         }
         
         .auth-logo-img {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 20px;
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 15px;
             display: block;
-            filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.3));
+            filter: drop-shadow(0 0 15px rgba(0, 255, 136, 0.3));
             animation: logoFloat 3s ease-in-out infinite;
         }
         
         .auth-logo-fallback {
             font-size: 48px;
-            margin-bottom: 20px;
-            filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.3));
+            margin-bottom: 15px;
+            filter: drop-shadow(0 0 15px rgba(0, 255, 136, 0.3));
             animation: logoFloat 3s ease-in-out infinite;
+            display: block;
         }
         
         @keyframes logoFloat {
             0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-8px); }
         }
         
         .auth-brand {
-            font-size: 2.8rem;
+            font-size: 2.5rem;
             font-weight: 700;
             letter-spacing: 4px;
             color: #ffffff;
-            margin: 0;
+            margin: 0 0 8px 0;
             font-family: 'JetBrains Mono', monospace;
         }
         
@@ -225,10 +228,10 @@ def load_css():
         
         .auth-tagline {
             color: #666;
-            font-size: 0.75rem;
-            letter-spacing: 6px;
+            font-size: 0.7rem;
+            letter-spacing: 5px;
             text-transform: uppercase;
-            margin-top: 12px;
+            margin: 0;
             font-weight: 300;
         }
         
@@ -238,7 +241,7 @@ def load_css():
             border: 1px solid #1a1a1a !important;
             border-radius: 0 !important;
             color: #ffffff !important;
-            padding: 18px 20px !important;
+            padding: 16px 18px !important;
             font-size: 0.9rem !important;
             font-family: 'JetBrains Mono', monospace !important;
             letter-spacing: 1px !important;
@@ -264,7 +267,7 @@ def load_css():
             color: #00ff88 !important;
             border: 1px solid #00ff88 !important;
             border-radius: 0 !important;
-            padding: 18px 32px !important;
+            padding: 16px 32px !important;
             font-weight: 500 !important;
             font-size: 0.85rem !important;
             letter-spacing: 3px !important;
@@ -293,6 +296,7 @@ def load_css():
             font-family: 'JetBrains Mono', monospace !important;
             font-size: 0.8rem !important;
             letter-spacing: 1px !important;
+            margin-bottom: 20px !important;
         }
         
         /* ========== SIDEBAR ========== */
@@ -497,92 +501,91 @@ def load_css():
             letter-spacing: 0.5px;
             margin: 0;
         }
+        
+        /* Hide Streamlit elements on login */
+        .login-hidden [data-testid="stSidebar"],
+        .login-hidden header,
+        .login-hidden footer,
+        .login-hidden [data-testid="stToolbar"] {
+            display: none !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
 # ============================================
-# CYBERPUNK LOGIN PAGE
+# FIXED LOGIN PAGE
 # ============================================
 def login_page():
-    # Remove default Streamlit elements for login page
-    st.markdown("""
-        <style>
-            [data-testid="stSidebar"] { display: none; }
-            header { display: none; }
-            footer { display: none; }
-            .stApp { margin: 0; padding: 0; }
-        </style>
+    # Add class to hide Streamlit UI elements
+    st.markdown('<div class="login-hidden">', unsafe_allow_html=True)
+    
+    # Fixed centered wrapper
+    st.markdown('<div class="auth-wrapper">', unsafe_allow_html=True)
+    
+    # Auth box - directly centered without column layout
+    st.markdown('<div class="auth-box">', unsafe_allow_html=True)
+    
+    # Logo Section
+    logo_html = render_logo_html(width="80px", height="80px", css_class="auth-logo-img")
+    
+    st.markdown(f"""
+        <div class="auth-logo-section">
+            {logo_html if logo_html else '<span class="auth-logo-fallback">👻</span>'}
+            <h1 class="auth-brand">GHOST<span class="auth-brand-dot">.</span>WIRE</h1>
+            <p class="auth-tagline">// admin console</p>
+        </div>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div class="auth-screen">', unsafe_allow_html=True)
+    # Login Form - no columns, full width
+    username = st.text_input(
+        "Username",
+        placeholder="> username",
+        label_visibility="collapsed",
+        key="login_user"
+    )
     
-    # Center the auth box
-    _, center_col, _ = st.columns([1, 2, 1])
+    # Minimal spacing
+    st.markdown("<div style='margin: 8px 0;'></div>", unsafe_allow_html=True)
     
-    with center_col:
-        st.markdown('<div class="auth-box">', unsafe_allow_html=True)
-        
-        # Logo Section
-        logo_html = render_logo_html(width="100px", height="100px", css_class="auth-logo-img")
-        
-        st.markdown(f"""
-            <div class="auth-logo-section">
-                {logo_html if logo_html else '<div class="auth-logo-fallback">👻</div>'}
-                <h1 class="auth-brand">GHOST<span class="auth-brand-dot">.</span>WIRE</h1>
-                <p class="auth-tagline">// admin console</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # Login Form
-        username = st.text_input(
-            "Username",
-            placeholder="> username",
-            label_visibility="collapsed",
-            key="login_user"
-        )
-        
-        password = st.text_input(
-            "Password",
-            type="password",
-            placeholder="> password",
-            label_visibility="collapsed",
-            key="login_pass"
-        )
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-        with col_btn2:
-            if st.button("// AUTHENTICATE", use_container_width=True, key="login_btn"):
-                if not username or not password:
-                    st.error("> ERROR: All fields required")
-                else:
-                    user = verify_admin(username, password)
-                    if user:
-                        execute(
-                            "UPDATE admin_users SET last_login=CURRENT_TIMESTAMP WHERE id=%s",
-                            (user['id'],)
-                        )
-                        st.session_state.authenticated = True
-                        st.session_state.admin_user = user
-                        st.rerun()
-                    else:
-                        st.error("> ERROR: Invalid credentials")
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Footer
-        st.markdown("""
-            <div style="text-align: center; margin-top: 40px;">
-                <p style="color: #333; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 2px;">
-                    <span class="status-dot"></span> SYSTEM SECURED
-                </p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+    password = st.text_input(
+        "Password",
+        type="password",
+        placeholder="> password",
+        label_visibility="collapsed",
+        key="login_pass"
+    )
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
+    
+    # Full-width button, no column wrapping
+    if st.button("// AUTHENTICATE", use_container_width=True, key="login_btn"):
+        if not username or not password:
+            st.error("> ERROR: All fields required")
+        else:
+            user = verify_admin(username, password)
+            if user:
+                execute(
+                    "UPDATE admin_users SET last_login=CURRENT_TIMESTAMP WHERE id=%s",
+                    (user['id'],)
+                )
+                st.session_state.authenticated = True
+                st.session_state.admin_user = user
+                st.rerun()
+            else:
+                st.error("> ERROR: Invalid credentials")
+    
+    # Footer
+    st.markdown("""
+        <div style="text-align: center; margin-top: 30px;">
+            <p style="color: #333; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 2px; margin: 0;">
+                <span class="status-dot"></span> SYSTEM SECURED
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)  # Close auth-box
+    st.markdown('</div>', unsafe_allow_html=True)  # Close auth-wrapper
+    st.markdown('</div>', unsafe_allow_html=True)  # Close login-hidden
 
 # ============================================
 # SIDEBAR
