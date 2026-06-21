@@ -1,6 +1,6 @@
 """
-Solana Sniper Bot - Professional Admin Dashboard
-Streamlit + Neon PostgreSQL - Premium UI Edition
+GHOSTWIRE Admin Dashboard v5.0
+CyberPunk Minimal | Premium Dark Theme | Pixel Perfect
 """
 
 import streamlit as st
@@ -8,960 +8,973 @@ import pandas as pd
 import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
-import plotly.express as px
-import plotly.graph_objects as go
 import time
 import os
+import hashlib
+import base64
+from pathlib import Path
 
 # ============================================
 # PAGE CONFIG
 # ============================================
 st.set_page_config(
-    page_title="GHOSTwire Admin",
+    page_title="GHOSTWIRE Admin",
     page_icon="👻",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ============================================
-# CONFIGURATION - Get from secrets or env
+# CONFIG
 # ============================================
 def get_config(key, default=None):
-    """Get configuration from Streamlit secrets or environment variables"""
-    try:
-        return st.secrets[key]
-    except:
-        return os.getenv(key, default)
+    try: return st.secrets[key]
+    except: return os.getenv(key, default)
 
 # ============================================
-# HELPER: Safe dataframe styling (compatible with all pandas versions)
+# LOGO HELPER
 # ============================================
-def style_dataframe(df, style_func, subset):
-    """Apply styling to dataframe - compatible with all pandas versions"""
-    try:
-        return df.style.map(style_func, subset=subset)
-    except AttributeError:
-        try:
-            return df.style.applymap(style_func, subset=subset)
-        except:
-            return df.style
+def get_logo_base64():
+    """Load logo.png and convert to base64 for HTML embedding"""
+    logo_path = Path(__file__).parent / "logo.png"
+    
+    # Check multiple locations for logo
+    possible_paths = [
+        logo_path,
+        Path("logo.png"),
+        Path("assets/logo.png"),
+        Path("static/logo.png")
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            with open(path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+    
+    return None
+
+def render_logo_html(width="80px", height="80px", css_class=""):
+    """Render logo as HTML img tag"""
+    logo_b64 = get_logo_base64()
+    
+    if logo_b64:
+        return f'<img src="data:image/png;base64,{logo_b64}" width="{width}" height="{height}" class="{css_class}" style="object-fit: contain;">'
+    else:
+        # Fallback to ghost emoji if logo not found
+        return '👻'
 
 # ============================================
-# CUSTOM CSS FOR DARK MODERN THEME
+# DATABASE
+# ============================================
+@st.cache_resource(ttl=300)
+def get_db_connection():
+    try:
+        db_url = get_config("DATABASE_URL")
+        if not db_url: return None
+        return psycopg2.connect(db_url, sslmode='require', connect_timeout=10)
+    except: return None
+
+def query(sql, params=None):
+    conn = get_db_connection()
+    if not conn: return []
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql, params)
+        result = cur.fetchall()
+        cur.close(); return result
+    except: return []
+
+def execute(sql, params=None):
+    conn = get_db_connection()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, params)
+        conn.commit(); cur.close()
+        return True
+    except: return False
+
+# ============================================
+# ADMIN AUTH
+# ============================================
+def init_admin():
+    execute("""
+        CREATE TABLE IF NOT EXISTS admin_users (
+            id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL, role TEXT DEFAULT 'admin',
+            is_active BOOLEAN DEFAULT true, last_login TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    existing = query("SELECT COUNT(*) as cnt FROM admin_users")
+    if existing and existing[0]['cnt'] == 0:
+        pwd = hashlib.sha256("GhostWire@2026".encode()).hexdigest()
+        execute("INSERT INTO admin_users (username, password_hash, role) VALUES (%s,%s,%s)", ("admin", pwd, "superadmin"))
+
+def verify_admin(username, password):
+    conn = get_db_connection()
+    if not conn: return None
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+        cur.execute("SELECT * FROM admin_users WHERE username=%s AND password_hash=%s AND is_active=true", (username, pwd_hash))
+        user = cur.fetchone(); cur.close()
+        return user
+    except: return None
+
+def create_admin(username, password, role='admin'):
+    pwd = hashlib.sha256(password.encode()).hexdigest()
+    try:
+        execute("INSERT INTO admin_users (username, password_hash, role) VALUES (%s,%s,%s)", (username, pwd, role))
+        return True
+    except: return False
+
+def get_admins():
+    return query("SELECT id, username, role, is_active, last_login, created_at FROM admin_users ORDER BY created_at DESC")
+
+init_admin()
+
+# ============================================
+# CYBERPUNK PREMIUM CSS
 # ============================================
 def load_css():
     st.markdown("""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
         
+        * {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        
+        /* ========== GLOBAL BACKGROUND ========== */
         .stApp {
-            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%);
+            background: #0a0a0a;
         }
         
-        .main .block-container {
-            padding: 2rem 3rem;
-            background: rgba(10, 10, 26, 0.7);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            border: 1px solid rgba(103, 25, 255, 0.1);
+        /* ========== AUTH SCREEN ========== */
+        .auth-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(0, 255, 136, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 255, 136, 0.02) 0%, transparent 50%),
+                #0a0a0a;
+            padding: 40px 20px;
         }
         
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Inter', sans-serif !important;
-            font-weight: 600 !important;
-            background: linear-gradient(135deg, #6719ff, #a78bfa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .auth-box {
+            background: #0d0d0d;
+            border: 1px solid #1a1a1a;
+            border-radius: 0;
+            padding: 60px 50px;
+            max-width: 440px;
+            width: 100%;
+            position: relative;
         }
         
-        h1 {
-            font-size: 2.5rem !important;
-            margin-bottom: 0.5rem !important;
+        .auth-box::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 20px;
+            right: 20px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #00ff88, transparent);
         }
         
-        div[data-testid="stMetric"] {
-            background: rgba(20, 20, 40, 0.6) !important;
-            backdrop-filter: blur(10px) !important;
-            border: 1px solid rgba(103, 25, 255, 0.2) !important;
-            border-radius: 16px !important;
-            padding: 1.5rem !important;
+        .auth-logo-section {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .auth-logo-img {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 20px;
+            display: block;
+            filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.3));
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+        
+        .auth-logo-fallback {
+            font-size: 48px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.3));
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+        
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .auth-brand {
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: #ffffff;
+            margin: 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .auth-brand-dot {
+            color: #00ff88;
+        }
+        
+        .auth-tagline {
+            color: #666;
+            font-size: 0.75rem;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            margin-top: 12px;
+            font-weight: 300;
+        }
+        
+        /* ========== INPUT FIELDS ========== */
+        .stTextInput > div > div > input {
+            background: #0f0f0f !important;
+            border: 1px solid #1a1a1a !important;
+            border-radius: 0 !important;
+            color: #ffffff !important;
+            padding: 18px 20px !important;
+            font-size: 0.9rem !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            letter-spacing: 1px !important;
             transition: all 0.3s ease !important;
-            box-shadow: 0 4px 20px rgba(103, 25, 255, 0.1) !important;
+        }
+        
+        .stTextInput > div > div > input:focus {
+            border-color: #00ff88 !important;
+            box-shadow: none !important;
+            outline: none !important;
+            background: #111111 !important;
+        }
+        
+        .stTextInput > div > div > input::placeholder {
+            color: #333 !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            letter-spacing: 2px !important;
+        }
+        
+        /* ========== BUTTON ========== */
+        .stButton > button {
+            background: transparent !important;
+            color: #00ff88 !important;
+            border: 1px solid #00ff88 !important;
+            border-radius: 0 !important;
+            padding: 18px 32px !important;
+            font-weight: 500 !important;
+            font-size: 0.85rem !important;
+            letter-spacing: 3px !important;
+            text-transform: uppercase !important;
+            transition: all 0.3s ease !important;
+            font-family: 'JetBrains Mono', monospace !important;
+        }
+        
+        .stButton > button:hover {
+            background: #00ff88 !important;
+            color: #0a0a0a !important;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3) !important;
+            transform: none !important;
+        }
+        
+        .stButton > button:active {
+            transform: scale(0.98) !important;
+        }
+        
+        /* ========== ALERTS ========== */
+        .stAlert {
+            background: rgba(255, 0, 85, 0.05) !important;
+            border: 1px solid rgba(255, 0, 85, 0.2) !important;
+            border-radius: 0 !important;
+            color: #ff0055 !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 0.8rem !important;
+            letter-spacing: 1px !important;
+        }
+        
+        /* ========== SIDEBAR ========== */
+        [data-testid="stSidebar"] {
+            background: #0d0d0d !important;
+            border-right: 1px solid #1a1a1a !important;
+        }
+        
+        [data-testid="stSidebar"] .stRadio > label {
+            color: #666 !important;
+            padding: 12px 16px !important;
+            border-radius: 0 !important;
+            transition: all 0.2s ease !important;
+            font-size: 0.85rem !important;
+            letter-spacing: 0.5px !important;
+            font-weight: 400 !important;
+        }
+        
+        [data-testid="stSidebar"] .stRadio > label:hover {
+            background: rgba(0, 255, 136, 0.05) !important;
+            color: #00ff88 !important;
+        }
+        
+        /* ========== METRICS ========== */
+        div[data-testid="stMetric"] {
+            background: #0d0d0d !important;
+            border: 1px solid #1a1a1a !important;
+            border-radius: 0 !important;
+            padding: 25px !important;
+            position: relative !important;
+        }
+        
+        div[data-testid="stMetric"]::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3px;
+            height: 30px;
+            background: #00ff88;
         }
         
         div[data-testid="stMetric"]:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 8px 30px rgba(103, 25, 255, 0.3) !important;
-            border-color: rgba(103, 25, 255, 0.4) !important;
+            border-color: #00ff88 !important;
+        }
+        
+        div[data-testid="stMetricValue"] {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 2.2rem !important;
         }
         
         div[data-testid="stMetric"] label {
-            color: #a78bfa !important;
-            font-weight: 500 !important;
+            color: #666 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 2px !important;
+            font-size: 0.65rem !important;
+            font-weight: 400 !important;
         }
         
-        div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-            color: #ffffff !important;
-            font-weight: 700 !important;
-            font-size: 2rem !important;
-        }
-        
+        /* ========== DATAFRAME ========== */
         .stDataFrame {
-            background: rgba(20, 20, 40, 0.6) !important;
-            border-radius: 16px !important;
-            border: 1px solid rgba(103, 25, 255, 0.2) !important;
-            overflow: hidden !important;
+            background: #0d0d0d !important;
+            border-radius: 0 !important;
+            border: 1px solid #1a1a1a !important;
         }
         
         .stDataFrame th {
-            background: rgba(103, 25, 255, 0.2) !important;
-            color: #a78bfa !important;
-            font-weight: 600 !important;
-            padding: 12px 16px !important;
+            background: #111111 !important;
+            color: #00ff88 !important;
+            font-weight: 500 !important;
+            font-size: 0.7rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1.5px !important;
+            padding: 16px 20px !important;
+            border-bottom: 2px solid #1a1a1a !important;
+            font-family: 'JetBrains Mono', monospace !important;
         }
         
         .stDataFrame td {
             background: transparent !important;
-            color: #e0e0e0 !important;
-            padding: 10px 16px !important;
-            border-bottom: 1px solid rgba(103, 25, 255, 0.1) !important;
+            color: #999 !important;
+            padding: 14px 20px !important;
+            border-bottom: 1px solid #111111 !important;
+            font-size: 0.85rem !important;
+            font-family: 'JetBrains Mono', monospace !important;
         }
         
-        .stButton > button {
-            background: linear-gradient(135deg, #6719ff, #8a4dff) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 12px !important;
-            padding: 12px 24px !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-            box-shadow: 0 4px 15px rgba(103, 25, 255, 0.3) !important;
+        /* ========== HEADINGS ========== */
+        h1 {
+            font-family: 'JetBrains Mono', monospace !important;
+            font-weight: 700 !important;
+            letter-spacing: 1px !important;
+            font-size: 2rem !important;
         }
         
-        .stButton > button:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 8px 25px rgba(103, 25, 255, 0.5) !important;
+        h3 {
+            color: #999 !important;
+            font-weight: 400 !important;
+            letter-spacing: 2px !important;
+            font-size: 0.9rem !important;
+            text-transform: uppercase !important;
         }
         
-        .stTextInput > div > div > input,
-        .stNumberInput > div > div > input {
-            background: rgba(20, 20, 40, 0.8) !important;
-            border: 1px solid rgba(103, 25, 255, 0.3) !important;
-            border-radius: 12px !important;
-            color: #ffffff !important;
-            padding: 12px 16px !important;
-        }
-        
-        .stTextInput > div > div > input::placeholder {
-            color: #6e6e80 !important;
-        }
-        
-        .stSelectbox > div > div {
-            background: rgba(20, 20, 40, 0.8) !important;
-            border: 1px solid rgba(103, 25, 255, 0.3) !important;
-            border-radius: 12px !important;
-        }
-        
-        [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 100%) !important;
-            border-right: 1px solid rgba(103, 25, 255, 0.2) !important;
-        }
-        
-        .stRadio > div {
-            background: transparent !important;
-        }
-        
-        .stRadio label {
-            color: #a78bfa !important;
-        }
-        
-        .js-plotly-plot {
-            background: transparent !important;
-        }
-        
+        /* ========== DIVIDER ========== */
         hr {
-            border-color: rgba(103, 25, 255, 0.2) !important;
+            border-color: #1a1a1a !important;
+            margin: 30px 0 !important;
         }
         
-        .stAlert {
-            background: rgba(20, 20, 40, 0.8) !important;
-            border: 1px solid rgba(103, 25, 255, 0.3) !important;
-            border-radius: 12px !important;
-            color: #ffffff !important;
-        }
-        
+        /* ========== SCROLLBAR ========== */
         ::-webkit-scrollbar {
-            width: 8px;
+            width: 4px;
         }
         
         ::-webkit-scrollbar-track {
-            background: rgba(10, 10, 26, 0.5);
+            background: #0a0a0a;
         }
         
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #6719ff, #8a4dff);
-            border-radius: 10px;
+            background: #1a1a1a;
+            border-radius: 0;
         }
         
-        @keyframes gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ff88;
         }
         
-        .title-gradient {
-            background: linear-gradient(135deg, #6719ff, #8a4dff, #a78bfa, #6719ff);
-            background-size: 400% 400%;
-            animation: gradient 6s ease infinite;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        /* ========== EXPANDER ========== */
+        .streamlit-expanderHeader {
+            background: #0d0d0d !important;
+            border: 1px solid #1a1a1a !important;
+            border-radius: 0 !important;
+            color: #00ff88 !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            letter-spacing: 1px !important;
         }
         
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        /* ========== SIDEBAR PROFILE ========== */
+        .sidebar-profile-box {
+            text-align: center;
+            padding: 30px 20px;
+            border-bottom: 1px solid #1a1a1a;
+            margin-bottom: 20px;
         }
         
-        .live-pulse {
-            animation: pulse 2s ease-in-out infinite;
-            color: #4ecca3;
+        .sidebar-logo-img {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 12px;
+            display: block;
         }
         
-        .stSlider > div > div > div {
-            background: linear-gradient(135deg, #6719ff, #8a4dff) !important;
+        .sidebar-logo-fallback {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+        
+        .sidebar-user-name {
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            margin: 8px 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .sidebar-role-tag {
+            display: inline-block;
+            padding: 4px 16px;
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            font-size: 0.65rem;
+            letter-spacing: 2px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Status indicator */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff88;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        /* Info box */
+        .info-box {
+            background: #0d0d0d;
+            border: 1px solid #1a1a1a;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .info-box p {
+            color: #666;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            margin: 0;
         }
     </style>
     """, unsafe_allow_html=True)
 
 # ============================================
-# DATABASE CONNECTION
+# CYBERPUNK LOGIN PAGE
 # ============================================
-@st.cache_resource
-def get_db_connection():
-    try:
-        db_url = get_config("DATABASE_URL")
-        
-        if not db_url:
-            st.error("DATABASE_URL not found in secrets or environment variables")
-            return None
-        
-        conn = psycopg2.connect(
-            db_url,
-            sslmode='require',
-            connect_timeout=10,
-            keepalives=1,
-            keepalives_idle=30,
-            keepalives_interval=10,
-            keepalives_count=5
-        )
-        return conn
-    except Exception as e:
-        st.error(f"Database connection failed: {e}")
-        return None
-
-def query(sql, params=None):
-    conn = get_db_connection()
-    if conn is None:
-        return []
-    try:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(sql, params)
-        result = cur.fetchall()
-        cur.close()
-        return result
-    except Exception as e:
-        st.error(f"Query error: {e}")
-        return []
-
-def execute(sql, params=None):
-    conn = get_db_connection()
-    if conn is None:
-        return False
-    try:
-        cur = conn.cursor()
-        cur.execute(sql, params)
-        conn.commit()
-        cur.close()
-        return True
-    except Exception as e:
-        st.error(f"Execute error: {e}")
-        return False
-
-# ============================================
-# AUTHENTICATION
-# ============================================
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
+def login_page():
+    # Remove default Streamlit elements for login page
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"] { display: none; }
+            header { display: none; }
+            footer { display: none; }
+            .stApp { margin: 0; padding: 0; }
+        </style>
+    """, unsafe_allow_html=True)
     
-    if not st.session_state.authenticated:
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.markdown("""
-                <div style="text-align: center; padding: 60px 0;">
-                    <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #6719ff, #8a4dff); 
-                         border-radius: 25px; margin: 0 auto; display: flex; align-items: center; justify-content: center;
-                         box-shadow: 0 10px 40px rgba(103, 25, 255, 0.5);">
-                        <span style="font-size: 50px;">👻</span>
-                    </div>
-                    <h1 style="margin-top: 30px; font-size: 3rem;" class="title-gradient">GHOSTwire</h1>
-                    <p style="color: #a78bfa; margin-bottom: 40px; font-size: 1.1rem;">Professional Admin Dashboard</p>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            password = st.text_input("Password", type="password", placeholder="Enter admin password")
-            
-            if st.button("🚀 Access Dashboard", use_container_width=True):
-                admin_pass = get_config("ADMIN_PASSWORD", "GhostWire@2026")
-                
-                if password == admin_pass:
-                    st.session_state.authenticated = True
-                    st.rerun()
-                else:
-                    st.error("🔒 Invalid password!")
+    st.markdown('<div class="auth-screen">', unsafe_allow_html=True)
+    
+    # Center the auth box
+    _, center_col, _ = st.columns([1, 2, 1])
+    
+    with center_col:
+        st.markdown('<div class="auth-box">', unsafe_allow_html=True)
         
-        st.markdown("""
-            <div style="text-align: center; margin-top: 40px; color: #6e6e80; font-size: 0.85rem;">
-                <p>Protected by GHOSTwire Security 🔐</p>
+        # Logo Section
+        logo_html = render_logo_html(width="100px", height="100px", css_class="auth-logo-img")
+        
+        st.markdown(f"""
+            <div class="auth-logo-section">
+                {logo_html if logo_html else '<div class="auth-logo-fallback">👻</div>'}
+                <h1 class="auth-brand">GHOST<span class="auth-brand-dot">.</span>WIRE</h1>
+                <p class="auth-tagline">// admin console</p>
             </div>
         """, unsafe_allow_html=True)
-        return False
-    return True
+        
+        # Login Form
+        username = st.text_input(
+            "Username",
+            placeholder="> username",
+            label_visibility="collapsed",
+            key="login_user"
+        )
+        
+        password = st.text_input(
+            "Password",
+            type="password",
+            placeholder="> password",
+            label_visibility="collapsed",
+            key="login_pass"
+        )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+        with col_btn2:
+            if st.button("// AUTHENTICATE", use_container_width=True, key="login_btn"):
+                if not username or not password:
+                    st.error("> ERROR: All fields required")
+                else:
+                    user = verify_admin(username, password)
+                    if user:
+                        execute(
+                            "UPDATE admin_users SET last_login=CURRENT_TIMESTAMP WHERE id=%s",
+                            (user['id'],)
+                        )
+                        st.session_state.authenticated = True
+                        st.session_state.admin_user = user
+                        st.rerun()
+                    else:
+                        st.error("> ERROR: Invalid credentials")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Footer
+        st.markdown("""
+            <div style="text-align: center; margin-top: 40px;">
+                <p style="color: #333; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 2px;">
+                    <span class="status-dot"></span> SYSTEM SECURED
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
 # SIDEBAR
 # ============================================
 def sidebar():
     with st.sidebar:
-        st.markdown("""
-            <div style="text-align: center; padding: 20px 0;">
-                <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #6719ff, #8a4dff); 
-                     border-radius: 18px; margin: 0 auto; display: flex; align-items: center; justify-content: center;
-                     box-shadow: 0 8px 25px rgba(103, 25, 255, 0.4);">
-                    <span style="font-size: 32px;">👻</span>
-                </div>
-                <h3 style="margin-top: 15px;" class="title-gradient">GHOSTwire</h3>
-                <p style="color: #a78bfa; font-size: 0.8rem; margin-bottom: 5px;">Admin Panel v2.0</p>
+        admin_user = st.session_state.get('admin_user', {})
+        username = admin_user.get('username', 'ADMIN')
+        role = admin_user.get('role', 'admin').upper()
+        
+        # Profile Section with Logo
+        logo_html = render_logo_html(width="60px", height="60px", css_class="sidebar-logo-img")
+        
+        st.markdown(f"""
+            <div class="sidebar-profile-box">
+                {logo_html if logo_html else '<div class="sidebar-logo-fallback">👻</div>'}
+                <div class="sidebar-user-name">{username}</div>
+                <span class="sidebar-role-tag">{role}</span>
             </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("---")
-        
-        pages = {
-            "📊 Dashboard": "Dashboard",
-            "👥 Users": "Users",
-            "💼 Wallets": "Wallets",
-            "📡 Channels": "Channels",
-            "📈 Positions": "Positions",
-            "💱 Trades": "Trades",
-            "🔗 Referrals": "Referrals",
-            "💰 Fees": "Fees",
-            "✅ Whitelist": "Whitelist",
-            "🚫 Blacklist": "Blacklist",
-            "🎯 Snipe Logs": "Snipe Logs",
-            "🔐 Sessions": "Sessions",
-            "⚙️ Settings": "Settings"
+        # Navigation
+        menu_options = {
+            "// DASHBOARD": "Dashboard",
+            "// USERS": "Users",
+            "// WALLETS": "Wallets",
+            "// CHANNELS": "Channels",
+            "// POSITIONS": "Positions",
+            "// TRADES": "Trades",
+            "// REFERRALS": "Referrals",
+            "// VERIFICATION": "Verification",
+            "// TICKETS": "Tickets",
+            "// FEES": "Fees",
+            "// WHITELIST": "Whitelist",
+            "// BLACKLIST": "Blacklist",
+            "// SNIPE LOGS": "SnipeLogs",
+            "// SESSIONS": "Sessions",
+            "// ADMINS": "Admins",
+            "// SETTINGS": "Settings"
         }
         
-        selected = st.radio("Navigation", list(pages.keys()), index=0, label_visibility="collapsed")
-        page = pages[selected]
+        selected = st.radio(
+            "NAV",
+            list(menu_options.keys()),
+            label_visibility="collapsed"
+        )
         
-        st.markdown("---")
+        page = menu_options[selected]
         
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Quick stats in sidebar
         try:
-            stats = query("SELECT COUNT(*) as count FROM users WHERE is_active = true")
-            if stats:
+            users = query("SELECT COUNT(*) as c FROM users WHERE is_active=true")
+            if users:
                 st.markdown(f"""
-                    <div style="text-align: center; padding: 10px; background: rgba(103, 25, 255, 0.1); 
-                         border-radius: 12px; border: 1px solid rgba(103, 25, 255, 0.2);">
-                        <p style="color: #a78bfa; margin: 0; font-size: 0.8rem;">Active Users</p>
-                        <p style="color: white; margin: 5px 0; font-size: 1.5rem; font-weight: 700;">{stats[0]['count']}</p>
+                    <div style="padding: 15px; border: 1px solid #1a1a1a; margin: 10px 0;">
+                        <p style="color: #666; font-size: 0.6rem; letter-spacing: 2px; margin: 0 0 5px 0;">ACTIVE USERS</p>
+                        <p style="color: #00ff88; font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 700; margin: 0;">{users[0]['c']}</p>
                     </div>
                 """, unsafe_allow_html=True)
         except:
             pass
         
-        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        st.markdown(f"""
-            <div style="text-align: center; color: #6e6e80; font-size: 0.75rem;">
-                <p>{datetime.now().strftime('%Y-%m-%d %H:%M')} UTC</p>
-                <p style="color: #4ecca3;" class="live-pulse">● System Online</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("🚪 Logout", use_container_width=True):
+        # Sign Out
+        if st.button("// SIGN OUT", use_container_width=True):
             st.session_state.authenticated = False
+            st.session_state.admin_user = None
             st.rerun()
         
         return page
 
 # ============================================
-# REUSABLE COMPONENTS
-# ============================================
-def section_header(title, subtitle=None):
-    st.markdown(f"""
-        <div style="margin-bottom: 30px;">
-            <h1 style="margin-bottom: 5px;">{title}</h1>
-            {f'<p style="color: #a78bfa; font-size: 1.1rem;">{subtitle}</p>' if subtitle else ''}
-        </div>
-    """, unsafe_allow_html=True)
-
-def metric_card(title, value, icon, delta=None):
-    st.metric(f"{icon} {title}", value, delta=delta)
-
-# ============================================
-# DASHBOARD PAGE
+# PAGES
 # ============================================
 def dashboard_page():
-    section_header("📊 Dashboard", "Real-time analytics and performance metrics")
+    st.markdown('<h1 style="color: #ffffff;">// DASHBOARD</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #666; font-family: \'JetBrains Mono\', monospace; font-size: 0.8rem; letter-spacing: 1px;">SYSTEM OVERVIEW</p>', unsafe_allow_html=True)
     
     stats = query("""
         SELECT 
-            (SELECT COUNT(*) FROM users WHERE is_active = true) as total_users,
-            (SELECT COUNT(*) FROM wallets WHERE is_active = true) as total_wallets,
-            (SELECT COUNT(*) FROM positions WHERE is_active = true AND amount > 0) as active_positions,
-            (SELECT COUNT(*) FROM channels WHERE is_active = true) as active_channels,
-            (SELECT COUNT(*) FROM trade_history WHERE DATE(created_at) = CURRENT_DATE) as today_trades,
-            (SELECT COALESCE(SUM(amount::numeric * price::numeric), 0) FROM trade_history WHERE DATE(created_at) = CURRENT_DATE) as today_volume
+            (SELECT COUNT(*) FROM users WHERE is_active=true) as users,
+            (SELECT COUNT(*) FROM wallets WHERE is_active=true) as wallets,
+            (SELECT COUNT(*) FROM positions WHERE is_active=true AND amount>0) as positions,
+            (SELECT COUNT(*) FROM channels WHERE is_active=true) as channels,
+            (SELECT COUNT(*) FROM trade_history WHERE DATE(created_at)=CURRENT_DATE) as today
     """)
     
     if stats:
         s = stats[0]
-        c1, c2, c3, c4 = st.columns(4)
-        with c1: metric_card("Active Users", s.get('total_users', 0), "👥")
-        with c2: metric_card("Total Wallets", s.get('total_wallets', 0), "💼")
-        with c3: metric_card("Active Positions", s.get('active_positions', 0), "📈")
-        with c4: metric_card("Active Channels", s.get('active_channels', 0), "📡")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            st.metric("TOTAL USERS", s['users'] or 0)
+        with col2:
+            st.metric("ACTIVE WALLETS", s['wallets'] or 0)
+        with col3:
+            st.metric("OPEN POSITIONS", s['positions'] or 0)
+        with col4:
+            st.metric("CHANNELS", s['channels'] or 0)
+        with col5:
+            st.metric("TODAY'S TRADES", s['today'] or 0)
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    stats2 = query("""
+    # Recent Trades
+    st.markdown('<h3>// RECENT TRANSACTIONS</h3>', unsafe_allow_html=True)
+    trades = query("""
         SELECT 
-            (SELECT COUNT(*) FROM trade_history) as total_trades,
-            (SELECT COUNT(*) FROM trade_history WHERE trade_type = 'buy') as total_buys,
-            (SELECT COUNT(*) FROM trade_history WHERE trade_type IN ('sell', 'auto-sell')) as total_sells,
-            (SELECT COUNT(*) FROM referrals WHERE is_active = true) as total_referrals,
-            (SELECT COALESCE(SUM(commission::numeric), 0) FROM referral_earnings) as total_commission
-    """)
-    
-    if stats2:
-        s = stats2[0]
-        c1, c2, c3, c4 = st.columns(4)
-        with c1: metric_card("Total Trades", s.get('total_trades', 0), "💱")
-        with c2: metric_card("Total Buys", s.get('total_buys', 0), "🟢")
-        with c3: metric_card("Total Sells", s.get('total_sells', 0), "🔴")
-        with c4: metric_card("Referral Earnings", f"{s.get('total_commission', 0):.4f} SOL", "💰")
-    
-    st.markdown("---")
-    
-    c1, c2 = st.columns(2)
-    
-    with c1:
-        st.markdown("### 📊 Trading Activity (Last 7 Days)")
-        trades = query("""
-            SELECT DATE(created_at) as date, 
-                   COUNT(CASE WHEN trade_type = 'buy' THEN 1 END) as buys,
-                   COUNT(CASE WHEN trade_type IN ('sell', 'auto-sell') THEN 1 END) as sells
-            FROM trade_history 
-            WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
-            GROUP BY DATE(created_at)
-            ORDER BY date
-        """)
-        if trades:
-            df = pd.DataFrame(trades)
-            fig = go.Figure()
-            fig.add_trace(go.Bar(x=df['date'], y=df['buys'], name='Buys', marker_color='#4ecca3', opacity=0.9))
-            fig.add_trace(go.Bar(x=df['date'], y=df['sells'], name='Sells', marker_color='#e94560', opacity=0.9))
-            fig.update_layout(
-                height=400, margin=dict(l=20, r=20, t=40, b=20),
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa')),
-                yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa')),
-                legend=dict(font=dict(color='#a78bfa')), hovermode='x unified', barmode='group'
-            )
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("No trades in last 7 days")
-    
-    with c2:
-        st.markdown("### 👥 User Growth (Last 30 Days)")
-        users = query("""
-            SELECT DATE(created_at) as date, COUNT(*) as count
-            FROM users 
-            WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
-            GROUP BY DATE(created_at)
-            ORDER BY date
-        """)
-        if users:
-            df = pd.DataFrame(users)
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=df['date'], y=df['count'], mode='lines+markers',
-                line=dict(color='#6719ff', width=3, shape='spline'),
-                marker=dict(color='#8a4dff', size=8),
-                fill='tozeroy', fillcolor='rgba(103, 25, 255, 0.1)'))
-            fig.update_layout(
-                height=400, margin=dict(l=20, r=20, t=40, b=20),
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa')),
-                yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa')),
-                hovermode='x unified'
-            )
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("No new users in last 30 days")
-    
-    st.markdown("---")
-    st.markdown("### 🏆 Top Traded Tokens (Today)")
-    
-    top_tokens = query("""
-        SELECT 
-            COALESCE(p.token_symbol, LEFT(th.token_address, 8) || '...') as token,
-            COUNT(*) as trades,
-            COALESCE(SUM(th.amount::numeric * th.price::numeric), 0) as volume
-        FROM trade_history th
-        LEFT JOIN positions p ON th.token_address = p.token_address
-        WHERE DATE(th.created_at) = CURRENT_DATE
-        GROUP BY p.token_symbol, th.token_address
-        ORDER BY trades DESC LIMIT 10
-    """)
-    
-    if top_tokens:
-        df = pd.DataFrame(top_tokens)
-        fig = px.bar(df, x='token', y='trades', color='trades',
-                     color_continuous_scale=['#4ecca3', '#6719ff', '#e94560'])
-        fig.update_layout(
-            height=400, margin=dict(l=20, r=20, t=20, b=20),
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa')),
-            yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa')),
-            coloraxis_showscale=False
-        )
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-    
-    st.markdown("---")
-    st.markdown("### 🔄 Recent Activity Feed")
-    
-    recent = query("""
-        SELECT 
-            th.created_at as "Time",
-            u.username as "User",
-            th.trade_type as "Type",
-            LEFT(th.token_address, 8) || '...' as "Token",
-            ROUND(th.amount::numeric, 4) as "Amount",
-            ROUND(th.price::numeric, 6) as "Price (SOL)"
-        FROM trade_history th
+            th.created_at as "TIME",
+            u.username as "USER",
+            th.trade_type as "TYPE",
+            LEFT(th.token_address, 10) || '...' as "TOKEN",
+            ROUND(th.amount::numeric, 4) as "AMOUNT"
+        FROM trade_history th 
         JOIN users u ON th.user_id = u.user_id
-        ORDER BY th.created_at DESC LIMIT 20
-    """)
-    
-    if recent:
-        df = pd.DataFrame(recent)
-        if 'Time' in df.columns:
-            df['Time'] = pd.to_datetime(df['Time']).dt.strftime('%Y-%m-%d %H:%M:%S')
-        
-        def style_trade_type(val):
-            if val == 'buy':
-                return 'background-color: rgba(78, 204, 163, 0.2); color: #4ecca3; font-weight: 600;'
-            elif val in ['sell', 'auto-sell']:
-                return 'background-color: rgba(233, 69, 96, 0.2); color: #e94560; font-weight: 600;'
-            return ''
-        
-        styled_df = style_dataframe(df, style_trade_type, ['Type'])
-        st.dataframe(styled_df, use_container_width=True, height=400)
-    else:
-        st.info("No recent trades available")
-
-# ============================================
-# USERS PAGE
-# ============================================
-def users_page():
-    section_header("👥 User Management", "Monitor and manage user accounts")
-    
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        search = st.text_input("🔍 Search Users", placeholder="Search by username or ID...")
-    with col2:
-        status_filter = st.selectbox("Status", ["All Users", "Active Only", "Inactive Only"])
-    
-    where_clause = ""
-    if status_filter == "Active Only":
-        where_clause = "WHERE u.is_active = true"
-    elif status_filter == "Inactive Only":
-        where_clause = "WHERE u.is_active = false"
-    
-    users = query(f"""
-        SELECT 
-            u.user_id as "ID",
-            u.username as "Username",
-            u.is_active as "Active",
-            u.created_at as "Joined",
-            COALESCE(w.wallet_count, 0) as "Wallets",
-            COALESCE(t.trade_count, 0) as "Trades",
-            COALESCE(r.ref_earned, 0) as "Ref Earnings"
-        FROM users u
-        LEFT JOIN (SELECT user_id, COUNT(*) as wallet_count FROM wallets WHERE is_active = true GROUP BY user_id) w ON u.user_id = w.user_id
-        LEFT JOIN (SELECT user_id, COUNT(*) as trade_count FROM trade_history GROUP BY user_id) t ON u.user_id = t.user_id
-        LEFT JOIN (SELECT referrer_id, COALESCE(SUM(commission::numeric), 0) as ref_earned FROM referral_earnings GROUP BY referrer_id) r ON u.user_id = r.referrer_id
-        {where_clause}
-        ORDER BY u.created_at DESC LIMIT 200
-    """)
-    
-    if users:
-        if search:
-            users = [u for u in users if search.lower() in str(u.get('Username', '')).lower() or search in str(u.get('ID', ''))]
-        
-        df = pd.DataFrame(users)
-        
-        def highlight_active(val):
-            if val == True:
-                return 'background-color: rgba(78, 204, 163, 0.2); color: #4ecca3; font-weight: 600;'
-            return 'background-color: rgba(233, 69, 96, 0.2); color: #e94560; font-weight: 600;'
-        
-        styled_df = style_dataframe(df, highlight_active, ['Active'])
-        st.dataframe(styled_df, use_container_width=True)
-    
-    st.markdown("---")
-    st.markdown("### ⚡ Quick Actions")
-    
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        user_id = st.number_input("User ID", min_value=1, step=1)
-    with c2:
-        action = st.selectbox("Action", ["Whitelist", "Blacklist", "Activate", "Deactivate"])
-    with c3:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("⚡ Execute", use_container_width=True):
-            actions = {
-                "Whitelist": "INSERT INTO fee_whitelist (user_id) VALUES (%s) ON CONFLICT DO NOTHING",
-                "Blacklist": "UPDATE users SET is_active = false WHERE user_id = %s",
-                "Activate": "UPDATE users SET is_active = true WHERE user_id = %s",
-                "Deactivate": "UPDATE users SET is_active = false WHERE user_id = %s"
-            }
-            execute(actions[action], (user_id,))
-            st.success(f"✅ User {user_id} {action.lower()}ed")
-            time.sleep(1)
-            st.rerun()
-
-# ============================================
-# WALLETS PAGE
-# ============================================
-def wallets_page():
-    section_header("💼 Wallet Management", "Monitor connected wallets")
-    wallets = query("""
-        SELECT w.id as "ID", u.username as "User", w.wallet_name as "Wallet Name",
-               w.wallet_number as "Wallet #", LEFT(w.public_key, 12) || '...' as "Public Key",
-               w.default_buy_amount as "Default Buy (SOL)", w.created_at as "Created"
-        FROM wallets w JOIN users u ON w.user_id = u.user_id
-        WHERE w.is_active = true ORDER BY w.created_at DESC LIMIT 200
-    """)
-    if wallets:
-        st.dataframe(pd.DataFrame(wallets), use_container_width=True)
-    else:
-        st.info("No wallets found")
-
-# ============================================
-# CHANNELS PAGE
-# ============================================
-def channels_page():
-    section_header("📡 Channel Monitoring", "Track Telegram channels")
-    stats = query("""
-        SELECT COUNT(*) as total, COUNT(CASE WHEN is_private THEN 1 END) as private,
-               COUNT(CASE WHEN NOT is_private THEN 1 END) as public
-        FROM channels WHERE is_active = true
-    """)
-    if stats:
-        s = stats[0]
-        c1, c2, c3 = st.columns(3)
-        with c1: metric_card("Total Channels", s.get('total', 0), "📡")
-        with c2: metric_card("Public Channels", s.get('public', 0), "🌐")
-        with c3: metric_card("Private Channels", s.get('private', 0), "🔒")
-    
-    st.markdown("---")
-    channels = query("""
-        SELECT c.id as "ID", u.username as "User", c.channel_name as "Channel",
-               CASE WHEN c.is_private THEN '🔒 Private' ELSE '🌐 Public' END as "Type",
-               c.signal_count as "Signals", c.created_at as "Added"
-        FROM channels c JOIN users u ON c.user_id = u.user_id
-        WHERE c.is_active = true ORDER BY c.created_at DESC LIMIT 100
-    """)
-    if channels:
-        st.dataframe(pd.DataFrame(channels), use_container_width=True)
-
-# ============================================
-# POSITIONS PAGE
-# ============================================
-def positions_page():
-    section_header("📈 Active Positions", "Current trading positions")
-    positions = query("""
-        SELECT p.id as "ID", u.username as "User",
-               COALESCE(p.token_symbol, LEFT(p.token_address, 12) || '...') as "Token",
-               ROUND(p.amount::numeric, 4) as "Amount",
-               ROUND(p.entry_price::numeric, 8) as "Entry Price",
-               ROUND((p.amount::numeric * p.entry_price::numeric), 4) as "Value (SOL)",
-               p.created_at as "Opened"
-        FROM positions p JOIN users u ON p.user_id = u.user_id
-        WHERE p.is_active = true AND p.amount > 0 ORDER BY p.created_at DESC LIMIT 100
-    """)
-    if positions:
-        st.dataframe(pd.DataFrame(positions), use_container_width=True)
-    else:
-        st.info("No active positions")
-
-# ============================================
-# TRADES PAGE
-# ============================================
-def trades_page():
-    section_header("💱 Trade History", "Complete trading records")
-    
-    c1, c2, c3 = st.columns(3)
-    with c1: trade_type = st.selectbox("Type", ["All", "buy", "sell", "auto-sell"])
-    with c2: date_range = st.selectbox("Period", ["Today", "Last 7 Days", "Last 30 Days", "All Time"])
-    with c3: limit = st.selectbox("Records", [50, 100, 200, 500], index=1)
-    
-    type_filter = "" if trade_type == "All" else f"AND th.trade_type = '{trade_type}'"
-    date_filter = ""
-    if date_range == "Today": date_filter = "AND DATE(th.created_at) = CURRENT_DATE"
-    elif date_range == "Last 7 Days": date_filter = "AND th.created_at >= CURRENT_DATE - INTERVAL '7 days'"
-    elif date_range == "Last 30 Days": date_filter = "AND th.created_at >= CURRENT_DATE - INTERVAL '30 days'"
-    
-    trades = query(f"""
-        SELECT th.created_at as "Time", u.username as "User", th.trade_type as "Type",
-               LEFT(th.token_address, 12) || '...' as "Token",
-               ROUND(th.amount::numeric, 4) as "Amount",
-               ROUND(th.price::numeric, 8) as "Price (SOL)",
-               ROUND((th.amount::numeric * th.price::numeric), 4) as "Value",
-               LEFT(th.txid, 12) || '...' as "TxID"
-        FROM trade_history th JOIN users u ON th.user_id = u.user_id
-        WHERE 1=1 {type_filter} {date_filter}
-        ORDER BY th.created_at DESC LIMIT {limit}
+        ORDER BY th.created_at DESC 
+        LIMIT 15
     """)
     
     if trades:
-        df = pd.DataFrame(trades)
-        def style_trade_type(val):
-            if val == 'buy': return 'background-color: rgba(78, 204, 163, 0.2); color: #4ecca3; font-weight: 600;'
-            elif val in ['sell', 'auto-sell']: return 'background-color: rgba(233, 69, 96, 0.2); color: #e94560; font-weight: 600;'
-            return ''
-        styled_df = style_dataframe(df, style_trade_type, ['Type'])
-        st.dataframe(styled_df, use_container_width=True)
-        csv = df.to_csv(index=False)
-        st.download_button("📥 Download CSV", csv, f"trades_{datetime.now():%Y%m%d_%H%M}.csv", "text/csv", use_container_width=True)
+        st.dataframe(
+            pd.DataFrame(trades),
+            use_container_width=True,
+            hide_index=True
+        )
     else:
-        st.info("No trades found")
+        st.markdown('<div class="info-box"><p>> No transactions found</p></div>', unsafe_allow_html=True)
 
-# ============================================
-# REFERRALS PAGE
-# ============================================
+def create_page(title, query_str, empty_msg="> No data found"):
+    st.markdown(f'<h1 style="color: #ffffff;">// {title.upper()}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p style="color: #666; font-family: \'JetBrains Mono\', monospace; font-size: 0.8rem; letter-spacing: 1px;">{title.upper()} MANAGEMENT</p>', unsafe_allow_html=True)
+    
+    data = query(query_str)
+    
+    if data:
+        st.dataframe(
+            pd.DataFrame(data),
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.markdown(f'<div class="info-box"><p>{empty_msg}</p></div>', unsafe_allow_html=True)
+    
+    return data
+
+def users_page():
+    create_page("Users", """
+        SELECT 
+            user_id as "ID",
+            username as "USERNAME",
+            is_active as "ACTIVE",
+            created_at as "JOINED"
+        FROM users 
+        ORDER BY created_at DESC 
+        LIMIT 200
+    """)
+
+def wallets_page():
+    create_page("Wallets", """
+        SELECT 
+            w.id as "ID",
+            u.username as "USER",
+            w.wallet_name as "WALLET",
+            LEFT(w.public_key, 12) || '...' as "KEY",
+            w.default_buy_amount as "BUY AMOUNT"
+        FROM wallets w 
+        JOIN users u ON w.user_id = u.user_id 
+        WHERE w.is_active = true 
+        LIMIT 200
+    """)
+
+def channels_page():
+    create_page("Channels", """
+        SELECT 
+            c.id as "ID",
+            u.username as "USER",
+            COALESCE(c.display_name, c.channel_name) as "CHANNEL",
+            CASE WHEN c.is_private THEN 'PRIVATE' ELSE 'PUBLIC' END as "TYPE",
+            COALESCE(c.sender_filter, '-') as "FILTER",
+            CASE WHEN c.max_market_cap > 0 
+                 THEN '$' || ROUND(c.max_market_cap)::text 
+                 ELSE '-' END as "MAX MC"
+        FROM channels c 
+        JOIN users u ON c.user_id = u.user_id 
+        WHERE c.is_active = true 
+        ORDER BY c.created_at DESC
+    """)
+
+def positions_page():
+    create_page("Positions", """
+        SELECT 
+            p.id as "ID",
+            u.username as "USER",
+            LEFT(p.token_address, 12) || '...' as "TOKEN",
+            ROUND(p.amount::numeric, 2) as "AMOUNT",
+            p.created_at as "CREATED"
+        FROM positions p 
+        JOIN users u ON p.user_id = u.user_id 
+        WHERE p.is_active = true AND p.amount > 0 
+        LIMIT 100
+    """)
+
+def trades_page():
+    create_page("Trades", """
+        SELECT 
+            th.created_at as "TIME",
+            u.username as "USER",
+            th.trade_type as "TYPE",
+            LEFT(th.token_address, 12) || '...' as "TOKEN",
+            ROUND(th.amount::numeric, 4) as "AMOUNT"
+        FROM trade_history th 
+        JOIN users u ON th.user_id = u.user_id 
+        ORDER BY th.created_at DESC 
+        LIMIT 150
+    """)
+
 def referrals_page():
-    section_header("🔗 Referral System", "Track referral earnings")
-    st.markdown("### 🏆 Top Referrers")
-    top = query("""
-        SELECT u.username as "Referrer", COUNT(*) as "Referrals",
-               COALESCE(SUM(re.commission::numeric), 0) as "Total Earned (SOL)",
-               ROUND(AVG(re.commission::numeric), 4) as "Avg Commission"
-        FROM referrals r JOIN users u ON r.referrer_id = u.user_id
-        LEFT JOIN referral_earnings re ON r.referrer_id = re.referrer_id
-        WHERE r.is_active = true GROUP BY r.referrer_id, u.username
-        ORDER BY "Total Earned (SOL)" DESC LIMIT 20
+    create_page("Referrals", """
+        SELECT 
+            u.username as "REFERRER",
+            COUNT(*) as "REFERRALS",
+            COALESCE(SUM(re.commission::numeric), 0) as "EARNED"
+        FROM referrals r2 
+        JOIN users u ON r2.referrer_id = u.user_id 
+        LEFT JOIN referral_earnings re ON r2.referrer_id = re.referrer_id 
+        WHERE r2.is_active = true 
+        GROUP BY r2.referrer_id, u.username 
+        ORDER BY "EARNED" DESC 
+        LIMIT 20
     """)
-    if top:
-        df = pd.DataFrame(top)
-        fig = go.Figure()
-        fig.add_trace(go.Bar(x=df['Referrer'], y=df['Total Earned (SOL)'],
-                             marker=dict(color=df['Total Earned (SOL)'],
-                             colorscale=['#4ecca3', '#6719ff', '#e94560'], showscale=False),
-                             text=df['Total Earned (SOL)'].apply(lambda x: f'{x:.4f} SOL'),
-                             textposition='outside', textfont=dict(color='#a78bfa')))
-        fig.update_layout(height=400, margin=dict(l=20, r=20, t=20, b=20),
-                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                         xaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickangle=45, tickfont=dict(color='#a78bfa')),
-                         yaxis=dict(gridcolor='rgba(103, 25, 255, 0.1)', tickfont=dict(color='#a78bfa')))
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        st.markdown("---")
-        st.dataframe(df, use_container_width=True)
 
-# ============================================
-# FEES PAGE
-# ============================================
+def verification_page():
+    create_page("Token Verification", """
+        SELECT 
+            u.username as "USER",
+            LEFT(tv.wallet_address, 12) || '...' as "WALLET",
+            ROUND(tv.token_balance::numeric, 2) as "GHOSTWIRE",
+            ROUND(tv.token_percent::numeric, 4) as "%",
+            CASE WHEN tv.token_percent >= 2 
+                 THEN 'WHALE' 
+                 ELSE 'HOLDER' END as "TIER"
+        FROM token_verifications tv 
+        JOIN users u ON tv.user_id = u.user_id 
+        WHERE tv.is_verified = true 
+        ORDER BY tv.token_percent DESC
+    """)
+
+def tickets_page():
+    create_page("Support Tickets", """
+        SELECT 
+            t.id as "ID",
+            t.created_at as "CREATED",
+            COALESCE(u.username, 'UNKNOWN') as "USER",
+            t.ticket_type as "TYPE",
+            t.subject as "SUBJECT",
+            t.status as "STATUS"
+        FROM support_tickets t 
+        LEFT JOIN users u ON t.user_id = u.user_id 
+        ORDER BY t.created_at DESC 
+        LIMIT 50
+    """)
+
 def fees_page():
-    section_header("💰 Fee Configuration", "Manage transaction fees")
-    current = query("SELECT * FROM fee_config WHERE is_active = true ORDER BY id DESC LIMIT 1")
-    if current:
-        c = current[0]
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("### Current Configuration")
-            st.metric("Fee Percentage", f"{c.get('fee_percent', 0)}%")
-            wallet = c.get('fee_wallet', 'Not Set')
-            wallet_display = f"{wallet[:12]}...{wallet[-8:]}" if wallet and wallet != 'Not Set' else "Not Set"
-            st.metric("Fee Wallet", wallet_display)
-        with c2:
-            st.markdown("### Update Fee")
-            new_fee = st.slider("Fee Percentage", 0.0, 10.0, float(c.get('fee_percent', 0.05)), 0.05, format="%.3f%%")
-            st.markdown(f"""
-                <div style="padding: 15px; background: rgba(103, 25, 255, 0.1); border-radius: 12px; 
-                     border: 1px solid rgba(103, 25, 255, 0.2); margin-top: 10px;">
-                    <p style="color: #a78bfa; margin: 0;">New Fee: <strong style="color: white;">{new_fee}%</strong></p>
-                </div>
-            """, unsafe_allow_html=True)
-            if st.button("💾 Save Configuration", use_container_width=True):
-                execute("INSERT INTO fee_config (fee_percent, is_active) VALUES (%s, true)", (new_fee,))
-                st.success(f"✅ Fee updated to {new_fee}%")
-                time.sleep(1)
-                st.rerun()
+    st.markdown('<h1 style="color: #ffffff;">// FEE SYSTEM</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #666; font-family: \'JetBrains Mono\', monospace; font-size: 0.8rem; letter-spacing: 1px;">FEE CONFIGURATION</p>', unsafe_allow_html=True)
+    
+    fees = query("SELECT * FROM fee_config WHERE is_active=true ORDER BY id DESC LIMIT 1")
+    if fees:
+        f = fees[0]
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("FEE %", f"{f.get('fee_percent', 0.05)}%")
+        with col2:
+            wallet = str(f.get('fee_wallet', 'NOT SET'))
+            st.metric("WALLET", wallet[:12] + '...' if len(wallet) > 12 else wallet)
+        with col3:
+            st.metric("STATUS", "ACTIVE")
+    else:
+        st.markdown('<div class="info-box"><p>> No fee config found</p></div>', unsafe_allow_html=True)
 
-# ============================================
-# WHITELIST PAGE
-# ============================================
 def whitelist_page():
-    section_header("✅ Fee Whitelist", "Users exempt from transaction fees")
-    whitelist = query("""
-        SELECT fw.user_id as "User ID", u.username as "Username", fw.created_at as "Whitelisted Since"
-        FROM fee_whitelist fw LEFT JOIN users u ON fw.user_id = u.user_id
-        WHERE fw.is_active = true ORDER BY fw.created_at DESC
+    create_page("Fee Whitelist", """
+        SELECT 
+            fw.user_id as "USER ID",
+            u.username as "USERNAME",
+            fw.created_at as "ADDED"
+        FROM fee_whitelist fw 
+        LEFT JOIN users u ON fw.user_id = u.user_id 
+        WHERE fw.is_active = true
     """)
-    if whitelist:
-        st.dataframe(pd.DataFrame(whitelist), use_container_width=True)
-    else:
-        st.info("No users whitelisted")
-    
-    st.markdown("---")
-    st.markdown("### Manage Whitelist")
-    c1, c2 = st.columns(2)
-    with c1:
-        add_id = st.number_input("Add User ID", min_value=1, step=1)
-        if st.button("✅ Add to Whitelist", use_container_width=True):
-            execute("INSERT INTO fee_whitelist (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (add_id,))
-            st.success(f"✅ User {add_id} added to whitelist")
-            time.sleep(1)
-            st.rerun()
-    with c2:
-        remove_id = st.number_input("Remove User ID", min_value=1, step=1)
-        if st.button("❌ Remove from Whitelist", use_container_width=True):
-            execute("UPDATE fee_whitelist SET is_active = false WHERE user_id = %s", (remove_id,))
-            st.success(f"✅ User {remove_id} removed from whitelist")
-            time.sleep(1)
-            st.rerun()
 
-# ============================================
-# BLACKLIST PAGE
-# ============================================
 def blacklist_page():
-    section_header("🚫 Blacklisted Users", "Deactivated accounts")
-    blacklist = query("""
-        SELECT user_id as "User ID", username as "Username", updated_at as "Deactivated Since"
-        FROM users WHERE is_active = false ORDER BY updated_at DESC
+    create_page("Blacklist", """
+        SELECT 
+            user_id as "USER ID",
+            username as "USERNAME",
+            updated_at as "BLACKLISTED"
+        FROM users 
+        WHERE is_active = false
     """)
-    if blacklist:
-        df = pd.DataFrame(blacklist)
-        def highlight_inactive(val):
-            return 'background-color: rgba(233, 69, 96, 0.2);'
-        styled_df = style_dataframe(df, highlight_inactive, ['Deactivated Since'])
-        st.dataframe(styled_df, use_container_width=True)
-        st.markdown("---")
-        st.markdown("### Reactivate User")
-        reactivate_id = st.number_input("Enter User ID to Reactivate", min_value=1, step=1)
-        if st.button("✅ Reactivate User", use_container_width=True):
-            execute("UPDATE users SET is_active = true WHERE user_id = %s", (reactivate_id,))
-            st.success(f"✅ User {reactivate_id} reactivated")
-            time.sleep(1)
-            st.rerun()
-    else:
-        st.info("No blacklisted users - all accounts are active! 🎉")
 
-# ============================================
-# SNIPE LOGS PAGE
-# ============================================
 def snipelogs_page():
-    section_header("🎯 Snipe Logs", "Bot execution history")
-    logs = query("""
-        SELECT sl.created_at as "Time", u.username as "User", sl.channel_name as "Channel",
-               LEFT(sl.token_address, 12) || '...' as "Token", sl.status as "Status",
-               sl.error_message as "Error"
-        FROM snipe_logs sl JOIN users u ON sl.user_id = u.user_id
-        ORDER BY sl.created_at DESC LIMIT 100
+    create_page("Snipe Logs", """
+        SELECT 
+            sl.created_at as "TIME",
+            u.username as "USER",
+            sl.channel_name as "CHANNEL",
+            LEFT(sl.token_address, 12) || '...' as "TOKEN",
+            sl.status as "STATUS"
+        FROM snipe_logs sl 
+        JOIN users u ON sl.user_id = u.user_id 
+        ORDER BY sl.created_at DESC 
+        LIMIT 200
     """)
-    if logs:
-        df = pd.DataFrame(logs)
-        def style_status(val):
-            if val == 'success': return 'background-color: rgba(78, 204, 163, 0.2); color: #4ecca3; font-weight: 600;'
-            elif val == 'failed': return 'background-color: rgba(233, 69, 96, 0.2); color: #e94560; font-weight: 600;'
-            return ''
-        styled_df = style_dataframe(df, style_status, ['Status'])
-        st.dataframe(styled_df, use_container_width=True)
-    else:
-        st.info("No snipe logs available")
 
-# ============================================
-# SESSIONS PAGE
-# ============================================
 def sessions_page():
-    section_header("🔐 Active Sessions", "Connected Telegram sessions")
-    sessions = query("""
-        SELECT user_id as "User ID", username as "Username", telegram_api_id as "API ID",
-               LEFT(telegram_phone, 12) || '...' as "Phone", updated_at as "Last Active"
-        FROM users WHERE telegram_session_string IS NOT NULL ORDER BY updated_at DESC
+    create_page("Active Sessions", """
+        SELECT 
+            user_id as "USER ID",
+            username as "USERNAME",
+            LEFT(COALESCE(telegram_phone, ''), 12) || '...' as "PHONE",
+            updated_at as "LAST ACTIVE"
+        FROM users 
+        WHERE telegram_session_string IS NOT NULL
     """)
-    if sessions:
-        st.dataframe(pd.DataFrame(sessions), use_container_width=True)
-    else:
-        st.info("No active sessions")
 
-# ============================================
-# SETTINGS PAGE
-# ============================================
+def admins_page():
+    st.markdown('<h1 style="color: #ffffff;">// ADMIN PANEL</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #666; font-family: \'JetBrains Mono\', monospace; font-size: 0.8rem; letter-spacing: 1px;">ADMINISTRATOR MANAGEMENT</p>', unsafe_allow_html=True)
+    
+    st.markdown('<h3>// CURRENT ADMINS</h3>', unsafe_allow_html=True)
+    admins = get_admins()
+    if admins:
+        st.dataframe(
+            pd.DataFrame(admins),
+            use_container_width=True,
+            hide_index=True
+        )
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    with st.expander("// CREATE NEW ADMIN"):
+        col1, col2 = st.columns(2)
+        with col1:
+            new_user = st.text_input("Username", placeholder="> username", key="new_admin_user", label_visibility="collapsed")
+        with col2:
+            new_pass = st.text_input("Password", type="password", placeholder="> password", key="new_admin_pass", label_visibility="collapsed")
+        
+        if st.button("// CREATE ADMIN", use_container_width=True):
+            if new_user and new_pass:
+                if create_admin(new_user, new_pass):
+                    st.success("// ADMIN CREATED SUCCESSFULLY")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("// ERROR: USERNAME EXISTS")
+            else:
+                st.error("// ERROR: ALL FIELDS REQUIRED")
+
 def settings_page():
-    section_header("⚙️ System Settings", "Database management and maintenance")
+    st.markdown('<h1 style="color: #ffffff;">// SETTINGS</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #666; font-family: \'JetBrains Mono\', monospace; font-size: 0.8rem; letter-spacing: 1px;">SYSTEM CONFIGURATION</p>', unsafe_allow_html=True)
     
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("### 📊 Database Overview")
-        stats = query("""
-            SELECT (SELECT COUNT(*) FROM users) as "Total Users",
-                   (SELECT COUNT(*) FROM wallets) as "Total Wallets",
-                   (SELECT COUNT(*) FROM positions) as "Total Positions",
-                   (SELECT COUNT(*) FROM channels) as "Total Channels",
-                   (SELECT COUNT(*) FROM trade_history) as "Total Trades",
-                   (SELECT COUNT(*) FROM snipe_logs) as "Total Logs"
-        """)
-        if stats:
-            for k, v in stats[0].items():
-                st.metric(k, v)
+    col1, col2 = st.columns(2)
     
-    with c2:
-        st.markdown("### 🛠️ Maintenance Tools")
-        if st.button("🗑️ Clean Old Logs (>30 days)", use_container_width=True):
+    with col1:
+        st.markdown('<h3>// MAINTENANCE</h3>', unsafe_allow_html=True)
+        if st.button("// CLEAN OLD LOGS", use_container_width=True):
             execute("DELETE FROM snipe_logs WHERE created_at < CURRENT_DATE - INTERVAL '30 days'")
-            st.success("✅ Old logs cleaned successfully!")
-            time.sleep(1)
-            st.rerun()
-        if st.button("🔄 Reset Daily Trade Counters", use_container_width=True):
-            execute("UPDATE users SET daily_trades = 0")
-            st.success("✅ Daily trade counters reset!")
-            time.sleep(1)
-            st.rerun()
+            st.success("// LOGS CLEANED SUCCESSFULLY")
     
-    st.markdown("---")
-    st.markdown("### ❤️ System Health")
-    db_status = "✅ Connected" if get_db_connection() else "❌ Disconnected"
-    active_users = query("SELECT COUNT(*) as count FROM users WHERE is_active = true")
-    user_status = f"✅ {active_users[0]['count']} Online" if active_users else "❌ Error"
-    
-    health_checks = {"Database": db_status, "Active Users": user_status, "Trading Engine": "✅ Running", "Fee Collection": "✅ Active"}
-    cols = st.columns(len(health_checks))
-    for i, (key, value) in enumerate(health_checks.items()):
-        with cols[i]:
-            st.markdown(f"""
-                <div style="padding: 15px; background: rgba(103, 25, 255, 0.1); border-radius: 12px; 
-                     border: 1px solid rgba(103, 25, 255, 0.2); text-align: center;">
-                    <p style="color: #a78bfa; font-size: 0.8rem; margin: 0;">{key}</p>
-                    <p style="color: #4ecca3; font-size: 1.1rem; margin: 5px 0 0 0;">{value}</p>
-                </div>
-            """, unsafe_allow_html=True)
+    with col2:
+        st.markdown('<h3>// DATABASE</h3>', unsafe_allow_html=True)
+        try:
+            tables = query("""
+                SELECT tablename as "TABLE", n_live_tup as "ROWS"
+                FROM pg_stat_user_tables
+                ORDER BY n_live_tup DESC
+                LIMIT 5
+            """)
+            if tables:
+                st.dataframe(
+                    pd.DataFrame(tables),
+                    use_container_width=True,
+                    hide_index=True
+                )
+        except:
+            st.markdown('<div class="info-box"><p>> Stats unavailable</p></div>', unsafe_allow_html=True)
 
 # ============================================
 # MAIN
@@ -969,7 +982,12 @@ def settings_page():
 def main():
     load_css()
     
-    if not check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+        st.session_state.admin_user = None
+    
+    if not st.session_state.authenticated:
+        login_page()
         return
     
     page = sidebar()
@@ -982,11 +1000,14 @@ def main():
         "Positions": positions_page,
         "Trades": trades_page,
         "Referrals": referrals_page,
+        "Verification": verification_page,
+        "Tickets": tickets_page,
         "Fees": fees_page,
         "Whitelist": whitelist_page,
         "Blacklist": blacklist_page,
-        "Snipe Logs": snipelogs_page,
+        "SnipeLogs": snipelogs_page,
         "Sessions": sessions_page,
+        "Admins": admins_page,
         "Settings": settings_page
     }
     
