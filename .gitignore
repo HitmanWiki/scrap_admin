@@ -1,42 +1,94 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
+# ============================================
+# DEPENDENCIES
+# ============================================
+node_modules/
+.npm
+package-lock.json
+yarn.lock
 
-# Environment variables (CRITICAL - never commit)
+# ============================================
+# ENVIRONMENT VARIABLES
+# ============================================
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Streamlit secrets (CRITICAL - never commit)
-.streamlit/secrets.toml
+# ============================================
+# LOGS
+# ============================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# IDE files
+# ============================================
+# OS FILES
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ============================================
+# EDITOR FILES
+# ============================================
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+*.sublime-project
+*.sublime-workspace
 
-# OS files
-.DS_Store
-Thumbs.db
+# ============================================
+# VERCEL
+# ============================================
+.vercel
+.now
 
-# Logs
-*.log
+# ============================================
+# BUILD
+# ============================================
+dist/
+build/
+.next/
+out/
 
-# Database (if any local)
-*.db
-*.sqlite
-
-# Temporary files
-*.tmp
-*.temp
+# ============================================
+# UPLOADS & USER CONTENT
+# ============================================
+uploads/
 temp/
+tmp/
 
-# Virtual environment
-venv/
-env/
-.venv/
+# ============================================
+# SENSITIVE FILES
+# ============================================
+*.pem
+*.key
+*.cert
+credentials.json
+service-account.json
 
-# Backup files
-*.bak
-*.backup
+# ============================================
+# DATABASE
+# ============================================
+*.sqlite
+*.sqlite3
+*.db
+
+# ============================================
+# MISC
+# ============================================
+.cache/
+coverage/
+.nyc_output/
+*.tsbuildinfo

@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>GHOSTWIRE · Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root{--bg-primary:#f0f4f9;--bg-secondary:#fff;--bg-sidebar:rgba(255,255,255,0.75);--text-primary:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8;--border-color:#e2e8f0;--card-bg:#fff;--card-border:#f1f5f9;--input-bg:rgba(255,255,255,0.6);--hover-bg:rgba(59,130,246,0.06);--active-bg:rgba(59,130,246,0.10);--accent:#3b82f6;--accent-hover:#2563eb;--danger:#ef4444;--success:#16a34a;--warning:#f59e0b;--shadow:0 4px 12px rgba(0,0,0,0.02)}
+        [data-theme="dark"]{--bg-primary:#0f172a;--bg-secondary:#1e293b;--bg-sidebar:rgba(30,41,59,0.95);--text-primary:#f1f5f9;--text-secondary:#94a3b8;--text-muted:#64748b;--border-color:#334155;--card-bg:#1e293b;--card-border:#334155;--input-bg:rgba(51,65,85,0.5);--hover-bg:rgba(59,130,246,0.1);--active-bg:rgba(59,130,246,0.2);--shadow:0 4px 12px rgba(0,0,0,0.3)}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;transition:all 0.3s}
+        #loginOverlay{position:fixed;inset:0;background:rgba(15,23,42,0.8);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.4s}
+        #loginOverlay.hidden{opacity:0;pointer-events:none}
+        .login-card{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:48px;padding:48px 40px;width:100%;max-width:420px;box-shadow:var(--shadow)}
+        .login-logo{text-align:center;margin-bottom:24px}
+        .login-logo img{width:80px;height:80px;object-fit:contain;margin-bottom:12px}
+        .login-logo h1{font-weight:700;font-size:1.6rem;color:var(--text-primary)}
+        .login-logo h1 span{color:var(--accent)}
+        .login-logo p{color:var(--text-muted);font-size:0.85rem;margin-top:4px}
+        .form-group{margin-bottom:18px}
+        .form-group label{display:block;font-weight:500;font-size:0.8rem;color:var(--text-secondary);margin-bottom:6px}
+        .form-group input,.form-group select,.form-group textarea{width:100%;padding:14px 18px;border:1px solid var(--border-color);border-radius:40px;font-size:0.95rem;background:var(--input-bg);color:var(--text-primary);font-family:'Inter',sans-serif;outline:none;transition:all 0.15s}
+        .form-group textarea{border-radius:20px;resize:vertical;min-height:80px}
+        .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(59,130,246,0.08);background:var(--bg-secondary)}
+        .btn{padding:14px 28px;border:none;border-radius:40px;font-weight:600;font-size:0.95rem;cursor:pointer;transition:all 0.2s;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:8px}
+        .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+        .btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:0.9}
+        .btn-outline{background:transparent;color:var(--text-primary);border:1px solid var(--border-color)}.btn-outline:hover{background:var(--hover-bg)}
+        .btn-sm{padding:6px 14px;font-size:0.78rem;gap:4px}
+        .login-error{color:var(--danger);font-size:0.8rem;margin-top:12px;text-align:center;min-height:24px}
+        #app{display:none;width:100%;min-height:100vh}#app.visible{display:flex}
+        .sidebar{width:280px;background:var(--bg-sidebar);backdrop-filter:blur(14px);border-right:1px solid var(--border-color);box-shadow:var(--shadow);display:flex;flex-direction:column;padding:32px 20px;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0;transition:all 0.3s}
+        .sidebar-brand{display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border-color)}
+        .sidebar-brand img{width:44px;height:44px;object-fit:contain;border-radius:12px}
+        .sidebar-brand .brand-text{font-weight:700;font-size:1.15rem;color:var(--text-primary)}.sidebar-brand .brand-text span{color:var(--accent)}
+        .nav-menu{display:flex;flex-direction:column;gap:4px;flex:1}
+        .nav-item{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:12px;color:var(--text-secondary);font-weight:500;font-size:0.9rem;transition:all 0.15s;cursor:pointer;background:transparent;border:none;width:100%;text-align:left;font-family:'Inter',sans-serif}
+        .nav-item i{width:22px;font-size:1rem;text-align:center}.nav-item:hover{background:var(--hover-bg);color:var(--text-primary)}
+        .nav-item.active{background:var(--active-bg);color:var(--text-primary);font-weight:600}.nav-item.active i{color:var(--accent)}
+        .sidebar-footer{margin-top:20px;padding-top:20px;border-top:1px solid var(--border-color)}
+        .user-card{display:flex;align-items:center;gap:14px;padding:8px 0;cursor:pointer}
+        .user-avatar{width:42px;height:42px;border-radius:40px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:1rem}
+        .user-info .name{font-weight:600;font-size:0.9rem;color:var(--text-primary)}.user-info .role{font-size:0.75rem;color:var(--text-muted)}
+        .main{flex:1;padding:32px 40px;overflow-y:auto;background:var(--bg-primary);transition:all 0.3s}
+        .page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+        .page-header h1{font-weight:700;font-size:1.8rem;color:var(--text-primary)}.page-header .sub{color:var(--text-secondary);font-weight:400;font-size:0.9rem}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;margin-bottom:32px}
+        .stat-card{background:var(--card-bg);border-radius:24px;padding:20px 24px;box-shadow:var(--shadow);border:1px solid var(--card-border);transition:0.15s}
+        .stat-card:hover{border-color:var(--border-color)}.stat-card .label{font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)}
+        .stat-card .value{font-size:2rem;font-weight:700;color:var(--text-primary);margin-top:6px}
+        .card{background:var(--card-bg);border-radius:24px;padding:24px 28px;border:1px solid var(--card-border);box-shadow:var(--shadow);margin-bottom:28px}
+        .card-title{font-weight:600;font-size:1rem;color:var(--text-primary);margin-bottom:18px;display:flex;align-items:center;gap:10px}.card-title i{color:var(--accent)}
+        .table-wrap{overflow-x:auto;border-radius:16px}table{width:100%;border-collapse:collapse;font-size:0.9rem}
+        th{text-align:left;padding:14px 12px;font-weight:600;color:var(--text-secondary);border-bottom:1px solid var(--border-color);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.4px}
+        td{padding:14px 12px;border-bottom:1px solid var(--card-border);color:var(--text-primary)}tr:last-child td{border-bottom:none}tr:hover td{background:var(--hover-bg)}
+        .flex-row{display:flex;flex-wrap:wrap;gap:20px}.flex-row .card{flex:1;min-width:240px}
+        .chart-container{position:relative;height:300px;margin-top:8px}
+        .loading{display:flex;align-items:center;justify-content:center;padding:48px 0;color:var(--text-muted);gap:12px}
+        .status-badge{display:inline-block;padding:4px 12px;border-radius:40px;font-size:0.7rem;font-weight:600}
+        .status-badge.active{background:#dcfce7;color:var(--success)}.status-badge.inactive{background:#fee2e2;color:var(--danger)}.status-badge.warning{background:#fef3c7;color:var(--warning)}
+        .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:10000;align-items:center;justify-content:center}
+        .modal.show{display:flex}.modal-content{background:var(--bg-secondary);border-radius:24px;padding:32px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;border:1px solid var(--border-color);box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+        .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.modal-header h2{color:var(--text-primary);font-size:1.3rem}
+        .modal-close{background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text-secondary)}.modal-close:hover{color:var(--danger)}
+        .theme-toggle{position:fixed;bottom:20px;right:20px;z-index:999;width:48px;height:48px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.2rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.3s}
+        .action-btns{display:flex;gap:6px;flex-wrap:wrap}
+        .login-theme-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.login-theme-btn:hover {
+    opacity: 0.8;
+}
+        @media(max-width:900px){.sidebar{width:80px;padding:20px 12px}.sidebar-brand .brand-text,.nav-item span,.user-info{display:none}.sidebar-brand{justify-content:center}.nav-item{justify-content:center;padding:12px}.nav-item i{font-size:1.2rem}.main{padding:24px 20px}}
+        @media(max-width:600px){.stats-grid{grid-template-columns:1fr 1fr}.page-header h1{font-size:1.4rem}}
+    </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginOverlay">
+    <div class="login-card">
+        <div class="login-logo">
+            <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
+            <h1>GHOST<span>.</span>WIRE</h1>
+            <p>admin console</p>
+        </div>
+        <form id="loginForm" autocomplete="off">
+            <div class="form-group"><label>Username</label><input type="text" id="loginUser" placeholder="admin" value="admin"></div>
+            <div class="form-group"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" value="GhostWire@2026"></div>
+            <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">Authenticate</button>
+            <div class="login-error" id="loginError"></div>
+        </form>
+        <div style="text-align:center;margin-top:20px;padding-top:20px;border-top:1px solid var(--border-color);">
+            <button class="btn btn-outline btn-sm" onclick="toggleTheme()" style="font-size:0.8rem;">
+                <span id="loginThemeIcon">🌙</span> <span id="loginThemeText">Dark Mode</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="app">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><img src="logo.png" alt="Logo" onerror="this.style.display='none'"><div class="brand-text">GHOST<span></span>wire</div></div>
+        <nav class="nav-menu" id="navMenu">
+            <button class="nav-item active" data-page="dashboard"><i class="fas fa-th-large"></i><span>Dashboard</span></button>
+            <button class="nav-item" data-page="users"><i class="fas fa-users"></i><span>Users</span></button>
+            <button class="nav-item" data-page="wallets"><i class="fas fa-wallet"></i><span>Wallets</span></button>
+            <button class="nav-item" data-page="channels"><i class="fas fa-hashtag"></i><span>Channels</span></button>
+            <button class="nav-item" data-page="positions"><i class="fas fa-chart-line"></i><span>Positions</span></button>
+            <button class="nav-item" data-page="trades"><i class="fas fa-exchange-alt"></i><span>Trades</span></button>
+            <button class="nav-item" data-page="referrals"><i class="fas fa-link"></i><span>Referrals</span></button>
+            <button class="nav-item" data-page="verification"><i class="fas fa-check-circle"></i><span>Verification</span></button>
+            <button class="nav-item" data-page="tickets"><i class="fas fa-ticket-alt"></i><span>Tickets</span></button>
+            <button class="nav-item" data-page="fees"><i class="fas fa-coins"></i><span>Fees</span></button>
+            <button class="nav-item" data-page="whitelist"><i class="fas fa-shield-alt"></i><span>Whitelist</span></button>
+            <button class="nav-item" data-page="blacklist"><i class="fas fa-ban"></i><span>Blacklist</span></button>
+            <button class="nav-item" data-page="snipelogs"><i class="fas fa-crosshairs"></i><span>Snipe Logs</span></button>
+            <button class="nav-item" data-page="sessions"><i class="fas fa-clock"></i><span>Sessions</span></button>
+            <button class="nav-item" data-page="admins"><i class="fas fa-user-cog"></i><span>Admins</span></button>
+            <button class="nav-item" data-page="profile"><i class="fas fa-user-circle"></i><span>Profile</span></button>
+            <button class="nav-item" data-page="logs"><i class="fas fa-history"></i><span>Activity Logs</span></button>
+            <button class="nav-item" data-page="settings"><i class="fas fa-sliders-h"></i><span>Settings</span></button>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-card" id="sidebarProfile"><div class="user-avatar" id="userAvatar">A</div><div class="user-info"><div class="name" id="userName">Admin</div><div class="role" id="userRole">Superadmin</div></div></div>
+            <button class="btn btn-outline" id="signOutBtn" style="width:100%;margin-top:12px;"><i class="fas fa-sign-out-alt"></i> Sign out</button>
+        </div>
+    </aside>
+    <main class="main" id="mainContent"></main>
+</div>
+
+<div class="modal" id="modal"><div class="modal-content" id="modalContent"></div></div>
+<button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+
+<script>
+// ============================================
+// APP STATE
+// ============================================
+const API={token:null,user:null,headers(){return{'Content-Type':'application/json',Authorization:`Bearer ${this.token}`}},async fetch(url,options={}){try{const r=await fetch(url,{...options,headers:{...this.headers(),...options.headers}});if(r.status===401||r.status===403){this.token=null;this.user=null;logout();throw new Error('Session expired')}if(!r.ok){const e=await r.json().catch(()=>({error:'Request failed'}));throw new Error(e.error||'Request failed')}return r.json()}catch(e){if(e.message==='Session expired')throw e;console.error('API Error:',e);throw e}}};
+let currentPage='dashboard',chartInstances={};
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+
+// ============================================
+// TABLE MAPPING - CRITICAL FIX
+// ============================================
+const TABLE_CONFIG={
+    users:{table:'users',pk:'user_id'},
+    wallets:{table:'wallets',pk:'id'},
+    channels:{table:'channels',pk:'id'},
+    positions:{table:'positions',pk:'id'},
+    trades:{table:'trade_history',pk:'id'},
+    referrals:{table:'referrals',pk:'id'},
+    verification:{table:'token_verifications',pk:'id'},
+    tickets:{table:'support_tickets',pk:'id'},
+    fees:{table:'fee_config',pk:'id'},
+    whitelist:{table:'whitelist',pk:'id'},
+    blacklist:{table:'blacklist',pk:'id'},
+    snipelogs:{table:'snipe_logs',pk:'id'},
+    sessions:{table:'users',pk:'user_id'},
+    admins:{table:'admin_users',pk:'id'},
+    logs:{table:'activity_logs',pk:'id'}
+};
+
+function getTableConfig(page){
+    return TABLE_CONFIG[page] || {table:page,pk:'id'};
+}
+
+function getRowId(row, page){
+    const config = getTableConfig(page);
+    // Try primary key first, then fallback
+    if(row[config.pk] !== undefined && row[config.pk] !== null) return row[config.pk];
+    if(row.id !== undefined && row.id !== null) return row.id;
+    if(row.user_id !== undefined && row.user_id !== null) return row.user_id;
+    // Try first column value
+    const firstKey = Object.keys(row)[0];
+    return row[firstKey] || '';
+}
+
+// ============================================
+// AUTH
+// ============================================
+async function login(u,p){try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});if(!r.ok){const e=await r.json();throw new Error(e.error||'Login failed')}const d=await r.json();API.token=d.token;API.user=d.user;$('#loginOverlay').classList.add('hidden');$('#app').classList.add('visible');updateSidebar();navigate('dashboard');return!0}catch(e){$('#loginError').textContent='❌ '+e.message;return!1}}
+function logout(){API.token=null;API.user=null;$('#app').classList.remove('visible');$('#loginOverlay').classList.remove('hidden');Object.values(chartInstances).forEach(c=>c.destroy());chartInstances={}}
+function updateSidebar(){if(API.user){$('#userName').textContent=API.user.username;$('#userRole').textContent=API.user.role.toUpperCase();$('#userAvatar').textContent=API.user.username.charAt(0).toUpperCase()}}
+
+// ============================================
+// MODAL
+// ============================================
+function showModal(t,c,onSave){$('#modalContent').innerHTML=`<div class="modal-header"><h2>${t}</h2><button class="modal-close" onclick="closeModal()">&times;</button></div>${c}<div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end;"><button class="btn btn-outline" onclick="closeModal()">Cancel</button>${onSave?'<button class="btn btn-primary" id="modalSave">Save</button>':''}</div>`;$('#modal').classList.add('show');if(onSave){$('#modalSave').addEventListener('click',async()=>{try{$('#modalSave').disabled=!0;$('#modalSave').textContent='Saving...';await onSave()}catch(e){alert('Error: '+e.message)}finally{$('#modalSave').disabled=!1;$('#modalSave').textContent='Save'}})}}
+function closeModal(){$('#modal').classList.remove('show')}
+
+// ============================================
+// NAVIGATION
+// ============================================
+async function navigate(p){if(!API.user)return;currentPage=p;$$('.nav-item').forEach(e=>e.classList.toggle('active',e.dataset.page===p));$('#mainContent').innerHTML=`<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading...</div>`;try{const h=await pages[p]?.load();$('#mainContent').innerHTML=h||'<div class="loading">Page not found</div>';Object.values(chartInstances).forEach(c=>c.destroy());chartInstances={};if(p==='dashboard')setTimeout(initCharts,100);await(pages[p]?.afterRender?.())}catch(e){console.error(e);$('#mainContent').innerHTML=`<div class="loading">❌ Error: ${e.message}</div>`}}
+
+// ============================================
+// TABLE RENDERER
+// ============================================
+function renderTable(title,subtitle,data,columns,showActions=true,createFn=null){
+    const actionHeader=showActions?'<th style="width:140px;">Actions</th>':'';
+    return`<div class="page-header"><div><h1>${title}</h1><div class="sub">${subtitle}</div></div>${createFn?`<button class="btn btn-primary" onclick="${createFn}"><i class="fas fa-plus"></i> Add New</button>`:''}</div><div class="card">${data&&data.length?`<div class="table-wrap"><table><thead><tr>${columns.map(c=>`<th>${c.label}</th>`).join('')}${actionHeader}</tr></thead><tbody>${data.map(row=>{const rid=getRowId(row,currentPage);console.log('Row data:',row,'Page:',currentPage,'RowID:',rid);return`<tr>${columns.map(c=>{let v=row[c.key]??'-';if(c.key==='is_active')v=`<span class="status-badge ${v?'active':'inactive'}">${v?'Active':'Inactive'}</span>`;if(c.key==='role')v=`<span class="status-badge ${v==='superadmin'?'warning':'active'}">${v}</span>`;if(c.key==='trade_type')v=`<span class="status-badge ${v==='BUY'?'active':'warning'}">${v}</span>`;return`<td>${v}</td>`}).join('')}${showActions?`<td><div class="action-btns"><button class="btn btn-outline btn-sm" onclick="handleEditClick('${currentPage}','${rid}')"><i class="fas fa-edit"></i> Edit</button><button class="btn btn-danger btn-sm" onclick="handleDeleteClick('${currentPage}','${rid}')"><i class="fas fa-trash"></i> Del</button></div></td>`:''}</tr>`}).join('')}</tbody></table></div>`:'<div style="padding:24px;color:var(--text-muted);">No data available</div>'}</div>`}
+
+// ============================================
+// CLICK HANDLERS
+// ============================================
+function handleEditClick(page, recordId){
+    console.log('=== EDIT CLICKED ===');
+    console.log('Page:', page);
+    console.log('Record ID:', recordId);
+    const config = getTableConfig(page);
+    console.log('Table:', config.table);
+    console.log('Primary Key:', config.pk);
+    editRecord(config.table, recordId);
+}
+
+function handleDeleteClick(page, recordId){
+    console.log('=== DELETE CLICKED ===');
+    console.log('Page:', page);
+    console.log('Record ID:', recordId);
+    const config = getTableConfig(page);
+    console.log('Table:', config.table);
+    deleteRecord(config.table, recordId);
+}
+
+// ============================================
+// EDIT / DELETE CORE FUNCTIONS
+// ============================================
+async function editRecord(table, id){
+    console.log('editRecord called - Table:', table, 'ID:', id, 'Type:', typeof id);
+    
+    if(!id || id === 'undefined' || id === 'null'){
+        alert('Cannot edit: Invalid record ID');
+        return;
+    }
+    
+    try{
+        showModal('Edit Record','<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading record...</div>',null);
+        
+        const record = await API.fetch(`/api/records/${table}/${id}`);
+        console.log('Fetched record:', record);
+        
+        if(!record || record.error){
+            throw new Error(record?.error || 'Record not found');
+        }
+        
+        // Find the primary key for this table
+        const tableConfig = Object.values(TABLE_CONFIG).find(c => c.table === table);
+        const pk = tableConfig ? tableConfig.pk : 'id';
+        console.log('Using PK:', pk);
+        
+        // Fields to skip
+        const skip = [pk, 'created_at', 'updated_at', 'password_hash', 'added_by', 'admin_id', 'last_login', 'telegram_session_string'];
+        
+        let fields = Object.keys(record).filter(k => !skip.includes(k));
+        if(fields.length === 0){
+            fields = Object.keys(record).filter(k => k !== 'created_at' && k !== 'updated_at' && !k.endsWith('_hash'));
+        }
+        
+        console.log('Editable fields:', fields);
+        
+        const formFields = fields.map(f => {
+            const v = record[f] ?? '';
+            const l = f.replace(/_/g, ' ').toUpperCase();
+            
+            // Boolean fields
+            if(f === 'is_active' || f === 'is_private' || f === 'is_verified'){
+                const bv = v === true || v === 'true' || v === 't';
+                return `<div class="form-group"><label>${l}</label><select id="ef_${f}"><option value="true" ${bv?'selected':''}>Yes / Active</option><option value="false" ${!bv?'selected':''}>No / Inactive</option></select></div>`;
+            }
+            // Role
+            if(f === 'role'){
+                return `<div class="form-group"><label>${l}</label><select id="ef_${f}"><option value="admin" ${v==='admin'?'selected':''}>Admin</option><option value="superadmin" ${v==='superadmin'?'selected':''}>Superadmin</option></select></div>`;
+            }
+            // Trade type
+            if(f === 'trade_type'){
+                return `<div class="form-group"><label>${l}</label><select id="ef_${f}"><option value="BUY" ${v==='BUY'?'selected':''}>BUY</option><option value="SELL" ${v==='SELL'?'selected':''}>SELL</option></select></div>`;
+            }
+            // Status
+            if(f === 'status'){
+                return `<div class="form-group"><label>${l}</label><select id="ef_${f}"><option value="OPEN" ${v==='OPEN'?'selected':''}>OPEN</option><option value="CLOSED" ${v==='CLOSED'?'selected':''}>CLOSED</option><option value="SUCCESS" ${v==='SUCCESS'?'selected':''}>SUCCESS</option><option value="FAILED" ${v==='FAILED'?'selected':''}>FAILED</option></select></div>`;
+            }
+            // Ticket type
+            if(f === 'ticket_type'){
+                return `<div class="form-group"><label>${l}</label><select id="ef_${f}"><option value="SUPPORT" ${v==='SUPPORT'?'selected':''}>SUPPORT</option><option value="BUG" ${v==='BUG'?'selected':''}>BUG</option><option value="FEATURE" ${v==='FEATURE'?'selected':''}>FEATURE</option></select></div>`;
+            }
+            // Numeric
+            if(f.includes('amount')||f.includes('price')||f.includes('balance')||f.includes('percent')||f.includes('fee')||f.includes('commission')||f.includes('market_cap')||f.includes('default_buy')){
+                return `<div class="form-group"><label>${l}</label><input type="number" id="ef_${f}" value="${v}" step="any"></div>`;
+            }
+            // Textarea
+            if(f==='reason'||f==='subject'||f==='details'||f==='description'){
+                return `<div class="form-group"><label>${l}</label><textarea id="ef_${f}" rows="3">${v}</textarea></div>`;
+            }
+            // Default text
+            return `<div class="form-group"><label>${l}</label><input type="text" id="ef_${f}" value="${v}"></div>`;
+        }).join('');
+        
+        showModal('Edit Record - ' + table, formFields, async () => {
+            const updates = {};
+            fields.forEach(f => {
+                const el = document.getElementById(`ef_${f}`);
+                if(el){
+                    let v = el.value;
+                    if(v === 'true') v = true;
+                    if(v === 'false') v = false;
+                    if(el.type === 'number' && v !== '') v = parseFloat(v);
+                    updates[f] = v;
+                }
+            });
+            console.log('Saving updates:', updates);
+            await API.fetch(`/api/records/${table}/${id}`, {method:'PUT', body:JSON.stringify(updates)});
+            closeModal();
+            navigate(currentPage);
+        });
+        
+    } catch(e) {
+        closeModal();
+        console.error('Edit error:', e);
+        alert('Error: ' + e.message);
+    }
+}
+
+async function deleteRecord(table, id){
+    if(!id || id === 'undefined' || id === 'null'){
+        alert('Cannot delete: Invalid record ID');
+        return;
+    }
+    if(confirm('Delete this record? This cannot be undone.')){
+        try{
+            await API.fetch(`/api/records/${table}/${id}`, {method:'DELETE'});
+            navigate(currentPage);
+        } catch(e) {
+            alert('Error: ' + e.message);
+        }
+    }
+}
+
+// ============================================
+// PAGES
+// ============================================
+const pages={
+dashboard:{async load(){try{const[stats,trades]=await Promise.all([API.fetch('/api/dashboard/stats'),API.fetch('/api/dashboard/recent-trades')]);const s=stats||{};return`<div class="page-header"><div><h1>Dashboard</h1><div class="sub">Real-time system overview</div></div></div><div class="stats-grid"><div class="stat-card"><div class="label">Total Users</div><div class="value">${s.total_users||0}</div></div><div class="stat-card"><div class="label">Wallets</div><div class="value">${s.total_wallets||0}</div></div><div class="stat-card"><div class="label">Positions</div><div class="value">${s.open_positions||0}</div></div><div class="stat-card"><div class="label">Channels</div><div class="value">${s.active_channels||0}</div></div><div class="stat-card"><div class="label">Today Trades</div><div class="value">${s.today_trades||0}</div></div><div class="stat-card"><div class="label">Whitelist</div><div class="value">${s.whitelist_count||0}</div></div><div class="stat-card"><div class="label">Blacklist</div><div class="value">${s.blacklist_count||0}</div></div><div class="stat-card"><div class="label">Admins</div><div class="value">${s.admin_count||0}</div></div></div><div class="flex-row"><div class="card" style="flex:1;"><div class="card-title"><i class="fas fa-chart-bar"></i> Trades (Last 7 Days)</div><div class="chart-container"><canvas id="tradesChart"></canvas></div></div><div class="card" style="flex:1;"><div class="card-title"><i class="fas fa-user-plus"></i> New Users (Last 7 Days)</div><div class="chart-container"><canvas id="usersChart"></canvas></div></div></div><div class="card"><div class="card-title"><i class="fas fa-clock"></i> Recent Transactions</div>${trades&&trades.length?`<div class="table-wrap"><table><thead><tr><th>Time</th><th>User</th><th>Type</th><th>Token</th><th>Amount</th></tr></thead><tbody>${trades.map(t=>`<tr><td>${new Date(t.created_at).toLocaleString()}</td><td>${t.username||'-'}</td><td><span class="status-badge ${t.trade_type==='BUY'?'active':'warning'}">${t.trade_type}</span></td><td>${t.token||'-'}</td><td>${t.amount||'-'}</td></tr>`).join('')}</tbody></table></div>`:'<div style="padding:24px;color:var(--text-muted);">No recent trades</div>'}</div>`}catch(e){return'<div class="loading">Error loading dashboard</div>'}}},
+whitelist:{async load(){const d=await API.fetch('/api/whitelist');return renderTable('Whitelist','Manage whitelisted wallets',d,[{key:'id',label:'ID'},{key:'wallet_address',label:'Wallet'},{key:'label',label:'Label'},{key:'added_by_username',label:'Added By'},{key:'created_at',label:'Created'}],true,"pages.whitelist.showCreate()")},showCreate:async function(){showModal('Add to Whitelist',`<div class="form-group"><label>Wallet *</label><input type="text" id="wlW" required></div><div class="form-group"><label>Label</label><input type="text" id="wlL"></div>`,async()=>{const w=$('#wlW')?.value?.trim();if(!w)return alert('Wallet required');await API.fetch('/api/whitelist',{method:'POST',body:JSON.stringify({wallet_address:w,label:$('#wlL')?.value||''})});closeModal();navigate('whitelist')})}},
+blacklist:{async load(){const d=await API.fetch('/api/blacklist');return renderTable('Blacklist','Manage blacklisted users',d,[{key:'id',label:'ID'},{key:'telegram_id',label:'Telegram ID'},{key:'username',label:'Username'},{key:'reason',label:'Reason'},{key:'added_by_username',label:'Added By'},{key:'created_at',label:'Created'}],true,"pages.blacklist.showCreate()")},showCreate:async function(){showModal('Add to Blacklist',`<div class="form-group"><label>Telegram ID *</label><input type="text" id="blT" required></div><div class="form-group"><label>Username</label><input type="text" id="blU"></div><div class="form-group"><label>Reason</label><textarea id="blR"></textarea></div>`,async()=>{const t=$('#blT')?.value?.trim();if(!t)return alert('Telegram ID required');await API.fetch('/api/blacklist',{method:'POST',body:JSON.stringify({telegram_id:t,username:$('#blU')?.value||'',reason:$('#blR')?.value||''})});closeModal();navigate('blacklist')})}},
+admins:{async load(){const d=await API.fetch('/api/admins');return renderTable('Admins','Manage administrators',d,[{key:'id',label:'ID'},{key:'username',label:'Username'},{key:'email',label:'Email'},{key:'role',label:'Role'},{key:'is_active',label:'Status'},{key:'last_login',label:'Last Login'}],true,"pages.admins.showCreate()")},showCreate:async function(){showModal('Create Admin',`<div class="form-group"><label>Username *</label><input type="text" id="adU" required></div><div class="form-group"><label>Email</label><input type="email" id="adE"></div><div class="form-group"><label>Password *</label><input type="password" id="adP" required></div><div class="form-group"><label>Role</label><select id="adR"><option value="admin">Admin</option><option value="superadmin">Superadmin</option></select></div>`,async()=>{const u=$('#adU')?.value?.trim(),p=$('#adP')?.value;if(!u||!p)return alert('Username and password required');await API.fetch('/api/admins',{method:'POST',body:JSON.stringify({username:u,email:$('#adE')?.value||'',password:p,role:$('#adR')?.value})});closeModal();navigate('admins')})}},
+profile:{async load(){const p=await API.fetch('/api/auth/profile');return`<div class="page-header"><div><h1>My Profile</h1><div class="sub">Manage your account</div></div></div><div class="flex-row"><div class="card" style="flex:1;"><div class="card-title"><i class="fas fa-user"></i> Profile</div><div class="form-group"><label>Username</label><input type="text" value="${p.username}" disabled></div><div class="form-group"><label>Email</label><input type="email" id="prE" value="${p.email||''}"></div><div class="form-group"><label>Role</label><input type="text" value="${p.role}" disabled></div><button class="btn btn-primary" id="updBtn">Update</button></div><div class="card" style="flex:1;"><div class="card-title"><i class="fas fa-lock"></i> Password</div><div class="form-group"><label>Current</label><input type="password" id="curP"></div><div class="form-group"><label>New</label><input type="password" id="newP"></div><div class="form-group"><label>Confirm</label><input type="password" id="conP"></div><button class="btn btn-primary" id="chgBtn">Change</button></div></div>`},async afterRender(){document.getElementById('updBtn')?.addEventListener('click',async()=>{await API.fetch('/api/auth/profile',{method:'PUT',body:JSON.stringify({email:$('#prE')?.value||''})});alert('Updated!')});document.getElementById('chgBtn')?.addEventListener('click',async()=>{const c=$('#curP')?.value,n=$('#newP')?.value,o=$('#conP')?.value;if(!c||!n)return alert('All fields required');if(n!==o)return alert('Passwords do not match!');await API.fetch('/api/auth/change-password',{method:'PUT',body:JSON.stringify({current_password:c,new_password:n})});alert('Password changed!');$('#curP').value=$('#newP').value=$('#conP').value=''})}},
+logs:{async load(){const d=await API.fetch('/api/logs');return renderTable('Activity Logs','Recent admin actions',d,[{key:'id',label:'ID'},{key:'username',label:'Admin'},{key:'action',label:'Action'},{key:'table_name',label:'Table'},{key:'record_id',label:'Record ID'},{key:'created_at',label:'Timestamp'}],false)}},
+settings:{async load(){return`<div class="page-header"><div><h1>Settings</h1><div class="sub">System configuration</div></div></div><div class="card"><div class="card-title"><i class="fas fa-database"></i> Database</div><p style="color:var(--success);">✅ Connected to Neon PostgreSQL</p></div>`}}
+};
+
+// ============================================
+// READ-ONLY PAGES WITH EDIT/DELETE
+// ============================================
+const roPages={
+users:{sql:'SELECT user_id, username, is_active, created_at FROM users ORDER BY created_at DESC LIMIT 200',cols:[{key:'user_id',label:'ID'},{key:'username',label:'Username'},{key:'is_active',label:'Status'},{key:'created_at',label:'Joined'}]},
+wallets:{sql:"SELECT w.id, u.username, w.wallet_name, LEFT(w.public_key,12)||'...' as pk, w.default_buy_amount FROM wallets w JOIN users u ON w.user_id=u.user_id ORDER BY w.id DESC LIMIT 200",cols:[{key:'id',label:'ID'},{key:'username',label:'User'},{key:'wallet_name',label:'Wallet'},{key:'pk',label:'Key'},{key:'default_buy_amount',label:'Buy Amt'}]},
+channels:{sql:"SELECT c.id, u.username, COALESCE(c.display_name,c.channel_name) as channel, CASE WHEN c.is_private THEN 'Private' ELSE 'Public' END as type FROM channels c JOIN users u ON c.user_id=u.user_id ORDER BY c.id DESC LIMIT 200",cols:[{key:'id',label:'ID'},{key:'username',label:'User'},{key:'channel',label:'Channel'},{key:'type',label:'Type'}]},
+positions:{sql:"SELECT p.id, u.username, LEFT(p.token_address,12)||'...' as token, ROUND(p.amount::numeric,2) as amount FROM positions p JOIN users u ON p.user_id=u.user_id WHERE p.is_active=true AND p.amount>0 ORDER BY p.id DESC LIMIT 200",cols:[{key:'id',label:'ID'},{key:'username',label:'User'},{key:'token',label:'Token'},{key:'amount',label:'Amount'}]},
+trades:{sql:"SELECT th.id, th.created_at, u.username, th.trade_type, LEFT(th.token_address,12)||'...' as token, ROUND(th.amount::numeric,4) as amount FROM trade_history th JOIN users u ON th.user_id=u.user_id ORDER BY th.created_at DESC LIMIT 200",cols:[{key:'id',label:'ID'},{key:'created_at',label:'Time'},{key:'username',label:'User'},{key:'trade_type',label:'Type'},{key:'token',label:'Token'},{key:'amount',label:'Amount'}]},
+referrals:{sql:"SELECT u.username as referrer, COUNT(r.*) as refs, COALESCE(SUM(re.commission),0) as earned FROM referrals r JOIN users u ON r.referrer_id=u.user_id LEFT JOIN referral_earnings re ON r.referrer_id=re.referrer_id GROUP BY u.username ORDER BY earned DESC LIMIT 100",cols:[{key:'referrer',label:'Referrer'},{key:'refs',label:'Referrals'},{key:'earned',label:'Earned'}]},
+verification:{sql:"SELECT u.username, LEFT(tv.wallet_address,12)||'...' as wallet, ROUND(tv.token_balance::numeric,2) as balance, ROUND(tv.token_percent::numeric,4) as pct FROM token_verifications tv JOIN users u ON tv.user_id=u.user_id WHERE tv.is_verified=true ORDER BY tv.token_percent DESC LIMIT 200",cols:[{key:'username',label:'User'},{key:'wallet',label:'Wallet'},{key:'balance',label:'Balance'},{key:'pct',label:'%'}]},
+tickets:{sql:"SELECT t.id, t.created_at, COALESCE(u.username,'Unknown') as username, t.ticket_type, t.subject, t.status FROM support_tickets t LEFT JOIN users u ON t.user_id=u.user_id ORDER BY t.created_at DESC LIMIT 200",cols:[{key:'id',label:'ID'},{key:'created_at',label:'Created'},{key:'username',label:'User'},{key:'ticket_type',label:'Type'},{key:'subject',label:'Subject'},{key:'status',label:'Status'}]},
+fees:{sql:"SELECT id, fee_percent, LEFT(COALESCE(fee_wallet,''),15)||'...' as wallet, is_active FROM fee_config ORDER BY id DESC LIMIT 50",cols:[{key:'id',label:'ID'},{key:'fee_percent',label:'Fee %'},{key:'wallet',label:'Wallet'},{key:'is_active',label:'Active'}]},
+snipelogs:{sql:"SELECT sl.id, sl.created_at, u.username, sl.channel_name, LEFT(sl.token_address,12)||'...' as token, sl.status FROM snipe_logs sl JOIN users u ON sl.user_id=u.user_id ORDER BY sl.created_at DESC LIMIT 200",cols:[{key:'id',label:'ID'},{key:'created_at',label:'Time'},{key:'username',label:'User'},{key:'channel_name',label:'Channel'},{key:'token',label:'Token'},{key:'status',label:'Status'}]},
+sessions:{sql:"SELECT user_id, username, LEFT(COALESCE(telegram_phone,''),12)||'...' as phone, updated_at FROM users WHERE telegram_session_string IS NOT NULL ORDER BY updated_at DESC LIMIT 200",cols:[{key:'user_id',label:'User ID'},{key:'username',label:'Username'},{key:'phone',label:'Phone'},{key:'updated_at',label:'Last Active'}]}
+};
+
+Object.entries(roPages).forEach(([name,config])=>{
+    pages[name]={async load(){try{const d=await API.fetch('/api/query',{method:'POST',body:JSON.stringify({sql:config.sql})});return renderTable(name.charAt(0).toUpperCase()+name.slice(1),`${name} management`,d.rows||[],config.cols,true)}catch(e){return`<div class="card"><div style="padding:24px;color:var(--text-muted);">Error: ${e.message}</div></div>`}}}
+});
+
+// ============================================
+// CHARTS - Daily Trades & Daily New Users
+// ============================================
+async function initCharts(){
+    try {
+        // Chart 1: Daily Trades - Bar Chart
+        const tradeData = await API.fetch('/api/dashboard/trade-volume');
+        const tradesCtx = document.getElementById('tradesChart');
+        
+        if(tradesCtx && tradeData){
+            chartInstances.trades = new Chart(tradesCtx, {
+                type: 'bar',
+                data: {
+                    labels: tradeData.days || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+                    datasets: [{
+                        label: 'Trades',
+                        data: tradeData.counts || [0,0,0,0,0,0,0],
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        maxBarThickness: 50
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                padding: 16,
+                                font: { size: 12 },
+                                usePointStyle: true,
+                                generateLabels: function(chart) {
+                                    return [{
+                                        text: 'Number of Trades',
+                                        fillStyle: '#3b82f6',
+                                        strokeStyle: '#3b82f6',
+                                        pointStyle: 'rectRounded',
+                                        index: 0
+                                    }];
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    return `Trades: ${ctx.raw}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Trades'
+                            },
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return Number.isInteger(value) ? value : '';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(148,163,184,0.1)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Day'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Chart 2: Daily New Users - Bar Chart
+        const userData = await API.fetch('/api/dashboard/user-registrations');
+        const usersCtx = document.getElementById('usersChart');
+        
+        if(usersCtx && userData){
+            chartInstances.users = new Chart(usersCtx, {
+                type: 'bar',
+                data: {
+                    labels: userData.days || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+                    datasets: [{
+                        label: 'New Users',
+                        data: userData.counts || [0,0,0,0,0,0,0],
+                        backgroundColor: '#10b981',
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        maxBarThickness: 50
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                padding: 16,
+                                font: { size: 12 },
+                                usePointStyle: true,
+                                generateLabels: function(chart) {
+                                    return [{
+                                        text: 'New Registrations',
+                                        fillStyle: '#10b981',
+                                        strokeStyle: '#10b981',
+                                        pointStyle: 'rectRounded',
+                                        index: 0
+                                    }];
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    return `New Users: ${ctx.raw}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'New Users'
+                            },
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return Number.isInteger(value) ? value : '';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(148,163,184,0.1)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Day'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    } catch(e) {
+        console.error('Chart error:', e);
+    }
+}
+// ============================================
+// THEME
+// ============================================
+// ============================================
+// THEME
+// ============================================
+function toggleTheme(){
+    const h=document.documentElement;
+    const c=h.getAttribute('data-theme');
+    const n=c==='dark'?'light':'dark';
+    h.setAttribute('data-theme',n);
+    
+    // Update all theme toggle buttons
+    const themeIcon = n==='dark'?'☀️':'🌙';
+    const themeText = n==='dark'?'Light Mode':'Dark Mode';
+    
+    // Main theme toggle (bottom right)
+    const mainToggle = $('#themeToggle');
+    if(mainToggle) mainToggle.innerHTML = themeIcon;
+    
+    // Login page theme toggle
+    const loginIcon = $('#loginThemeIcon');
+    const loginText = $('#loginThemeText');
+    if(loginIcon) loginIcon.textContent = themeIcon;
+    if(loginText) loginText.textContent = themeText;
+    
+    localStorage.setItem('theme',n);
+    
+    // Redraw charts if on dashboard
+    if(currentPage==='dashboard'){
+        Object.values(chartInstances).forEach(x=>x.destroy());
+        chartInstances={};
+        initCharts();
+    }
+}
+
+const savedTheme=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',savedTheme);
+
+document.addEventListener('DOMContentLoaded',()=>{
+    // Set initial theme icons
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const themeIcon = currentTheme==='dark'?'☀️':'🌙';
+    const themeText = currentTheme==='dark'?'Light Mode':'Dark Mode';
+    
+    const mainToggle = $('#themeToggle');
+    if(mainToggle) mainToggle.innerHTML = themeIcon;
+    
+    const loginIcon = $('#loginThemeIcon');
+    const loginText = $('#loginThemeText');
+    if(loginIcon) loginIcon.textContent = themeIcon;
+    if(loginText) loginText.textContent = themeText;
+    
+    $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();await login($('#loginUser').value,$('#loginPass').value)});
+    $('#signOutBtn').addEventListener('click',logout);
+    $('#themeToggle').addEventListener('click',toggleTheme);
+    $('#sidebarProfile').addEventListener('click',()=>navigate('profile'));
+    $$('.nav-item').forEach(i=>i.addEventListener('click',()=>navigate(i.dataset.page)));
+    $('#modal').addEventListener('click',e=>{if(e.target===$('#modal'))closeModal()});
+    document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!$('#loginOverlay').classList.contains('hidden'))$('#loginForm').dispatchEvent(new Event('submit'))});
+});
+
+</script>
+</body>
+</html>
