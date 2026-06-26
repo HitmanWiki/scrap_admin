@@ -321,7 +321,20 @@ if (url === '/api/dashboard/stats' && method === 'GET') {
             const result = await getPool().query('INSERT INTO blacklist (telegram_id, username, reason, added_by) VALUES ($1,$2,$3,$4) RETURNING *', [telegram_id||'', username||'', reason||'', user.id]);
             return sendJSON(res, 201, result.rows[0]);
         }
-
+        // DEBUG - Check actual total_value values
+if (url === '/api/debug/volume' && method === 'GET') {
+    const result = await getPool().query(`
+        SELECT 
+            trade_type,
+            total_value,
+            created_at
+        FROM trade_history 
+        WHERE trade_type = 'sell'
+        ORDER BY created_at DESC
+        LIMIT 10
+    `);
+    return sendJSON(res, 200, result.rows);
+}
         // Generic record CRUD - handle /api/records/:table/:id
         const recordMatch = url.match(/^\/api\/records\/([^\/]+)\/(.+)$/);
         if (recordMatch) {
