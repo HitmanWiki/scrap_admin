@@ -248,10 +248,22 @@ module.exports = async (req, res) => {
         }
 
         // Dashboard stats
-        if (url === '/api/dashboard/stats' && method === 'GET') {
-            const result = await getPool().query(`SELECT (SELECT COUNT(*) FROM users WHERE is_active=true) as total_users, (SELECT COUNT(*) FROM wallets WHERE is_active=true) as total_wallets, (SELECT COUNT(*) FROM positions WHERE is_active=true AND amount>0) as open_positions, (SELECT COUNT(*) FROM channels WHERE is_active=true) as active_channels, (SELECT COUNT(*) FROM trade_history WHERE DATE(created_at)=CURRENT_DATE) as today_trades, (SELECT COUNT(*) FROM whitelist WHERE is_active=true) as whitelist_count, (SELECT COUNT(*) FROM blacklist WHERE is_active=true) as blacklist_count, (SELECT COUNT(*) FROM admin_users WHERE is_active=true) as admin_count`);
-            return sendJSON(res, 200, result.rows[0] || {});
-        }
+if (url === '/api/dashboard/stats' && method === 'GET') {
+    const result = await getPool().query(`
+        SELECT 
+            (SELECT COUNT(*) FROM users WHERE is_active=true) as total_users,
+            (SELECT COUNT(*) FROM wallets WHERE is_active=true) as total_wallets,
+            (SELECT COUNT(*) FROM positions WHERE is_active=true AND amount>0) as open_positions,
+            (SELECT COUNT(*) FROM channels WHERE is_active=true) as active_channels,
+            (SELECT COUNT(*) FROM trade_history WHERE DATE(created_at)=CURRENT_DATE) as today_trades,
+            (SELECT COUNT(*) FROM whitelist WHERE is_active=true) as whitelist_count,
+            (SELECT COUNT(*) FROM blacklist WHERE is_active=true) as blacklist_count,
+            (SELECT COUNT(*) FROM admin_users WHERE is_active=true) as admin_count,
+            (SELECT COALESCE(SUM(amount_sol), 0)::numeric(20,2) FROM trade_history WHERE DATE(created_at)=CURRENT_DATE) as today_volume_sol,
+            (SELECT COALESCE(SUM(amount_sol), 0)::numeric(20,2) FROM trade_history) as total_volume_sol
+    `);
+    return sendJSON(res, 200, result.rows[0] || {});
+}
 
         if (url === '/api/dashboard/trade-volume' && method === 'GET') {
             try {
