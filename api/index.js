@@ -263,7 +263,7 @@ if (url === '/api/dashboard/stats' && method === 'GET') {
             (SELECT COUNT(*) FROM blacklist WHERE is_active=true) as blacklist_count,
             (SELECT COUNT(*) FROM admin_users WHERE is_active=true) as admin_count,
             (SELECT COALESCE(SUM(total_value) / 1000.0, 0)::numeric(20,3) FROM trade_history WHERE DATE(created_at)=CURRENT_DATE AND trade_type = 'sell') as today_volume_sol,
-            (SELECT COALESCE(SUM(total_value) / 1000.0, 0)::numeric(20,3) FROM trade_history WHERE trade_type = 'sell') as total_volume_sol
+            (SELECT COALESCE(SUM(total_value) / 100000.0, 0)::numeric(20,3) FROM trade_history WHERE trade_type = 'sell') as total_volume_sol
     `);
     return sendJSON(res, 200, result.rows[0] || {});
 }
