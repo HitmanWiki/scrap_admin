@@ -248,8 +248,7 @@ module.exports = async (req, res) => {
         }
 
         // Dashboard stats
-// Dashboard stats
-// Dashboard stats
+// In your backend, replace the dashboard stats query:
 if (url === '/api/dashboard/stats' && method === 'GET') {
     const result = await getPool().query(`
         SELECT 
@@ -259,13 +258,30 @@ if (url === '/api/dashboard/stats' && method === 'GET') {
             (SELECT COUNT(*) FROM channels WHERE is_active=true) as active_channels,
             (SELECT COUNT(*) FROM trade_history WHERE DATE(created_at)=CURRENT_DATE) as today_trades,
             (SELECT COUNT(*) FROM trade_history) as total_trades,
+            (SELECT COUNT(*) FROM group_bots WHERE is_active=true) as total_groups,
+            (SELECT COUNT(*) FROM group_subscriptions WHERE is_active=true) as total_subscribers,
             (SELECT COUNT(*) FROM whitelist WHERE is_active=true) as whitelist_count,
             (SELECT COUNT(*) FROM blacklist WHERE is_active=true) as blacklist_count,
             (SELECT COUNT(*) FROM admin_users WHERE is_active=true) as admin_count,
-            (SELECT COALESCE(SUM(total_value) / 1000.0, 0)::numeric(20,3) FROM trade_history WHERE DATE(created_at)=CURRENT_DATE AND trade_type = 'sell') as today_volume_sol,
-            (SELECT COALESCE(SUM(total_value) / 100000.0, 0)::numeric(20,3) FROM trade_history WHERE trade_type = 'sell') as total_volume_sol
+            
+            -- 🔥 Accurate buy volume from trade_history (only valid records)
+            (SELECT COALESCE(SUM(total_value), 0) FROM trade_history WHERE trade_type = 'buy' AND total_value > 0) as total_buy_volume,
+            
+            -- 🔥 Accurate sell volume from trade_history (only valid records, excluding inflated)
+            (SELECT COALESCE(SUM(total_value), 0) FROM trade_history WHERE trade_type = 'sell' AND total_value > 0 AND total_value < 100) as total_sell_volume,
+            
+            -- 🔥 Revenue from group_revenue (most accurate)
+            (SELECT COALESCE(SUM(fee_amount), 0) FROM group_revenue) as total_fees_collected,
+            (SELECT COALESCE(SUM(owner_share), 0) FROM group_revenue) as total_owner_share,
+            (SELECT COALESCE(SUM(sol_amount), 0) FROM group_revenue) as group_volume,
+            
+            -- 🔥 Today's stats
+            (SELECT COALESCE(SUM(total_value), 0) FROM trade_history WHERE DATE(created_at)=CURRENT_DATE AND trade_type='buy' AND total_value>0) as today_buy_volume,
+            (SELECT COALESCE(SUM(total_value), 0) FROM trade_history WHERE DATE(created_at)=CURRENT_DATE AND trade_type='sell' AND total_value>0 AND total_value<100) as today_sell_volume,
+            (SELECT COALESCE(SUM(fee_amount), 0) FROM group_revenue WHERE DATE(created_at)=CURRENT_DATE) as today_fees
     `);
     return sendJSON(res, 200, result.rows[0] || {});
+
 }
 
         if (url === '/api/dashboard/trade-volume' && method === 'GET') {
